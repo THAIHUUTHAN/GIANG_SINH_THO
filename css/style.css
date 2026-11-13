@@ -593,3 +593,117 @@ button { font: inherit; color: inherit; }
   .gift, .gift-glow, .end-heart, .scroll-hint, .intro-hint { animation: none; }
   .intro-hint { opacity: 0.7; }
 }
+
+/* =====================================================================
+ *  THỎ TRANG TRÍ MÀN HÌNH MỞ QUÀ
+ * ===================================================================== */
+.intro-inner { position: relative; z-index: 2; }
+.bunnies {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.bunny {
+  position: absolute;
+  aspect-ratio: 224 / 260;
+  transform: rotate(var(--tilt, 0deg));
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.6s ease;
+}
+.bunny-bob {
+  width: 100%;
+  height: 100%;
+  animation: bunny-bob 3.6s ease-in-out infinite;
+  animation-delay: calc(var(--d, 0s) * -1);
+  transform-origin: 50% 100%;
+  will-change: transform;
+}
+.bunny-jump { display: block; width: 100%; height: 100%; transform-origin: 50% 92%; }
+.bunny-jump.boing { animation: bunny-boing 0.7s cubic-bezier(0.3, 0.7, 0.4, 1); }
+.bn-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 10px rgba(255, 220, 210, 0.12));
+}
+.bn-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bunny-blink 5.2s infinite;
+}
+.bunny:nth-child(3n) .bn-eyes { animation-delay: 1.7s; }
+.bunny:nth-child(3n + 1) .bn-eyes { animation-delay: 3.1s; }
+
+@keyframes bunny-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  30% { transform: translateY(-4%) rotate(-2deg); }
+  60% { transform: translateY(0) rotate(1.5deg); }
+}
+@keyframes bunny-blink {
+  0%, 93%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.12); }
+}
+@keyframes bunny-boing {
+  0% { transform: scale(1, 1) translateY(0); }
+  18% { transform: scale(1.12, 0.84) translateY(3%); }
+  45% { transform: scale(0.92, 1.1) translateY(-16%); }
+  70% { transform: scale(1.05, 0.95) translateY(0); }
+  85% { transform: scale(0.98, 1.02) translateY(-2%); }
+  100% { transform: scale(1, 1) translateY(0); }
+}
+
+/* --- vị trí (máy tính) --- */
+.b-big-l { left: 3vw; bottom: -7vh; width: clamp(150px, 17vw, 250px); z-index: 3; }
+.b-mid-l { left: calc(3vw + clamp(112px, 12.6vw, 188px)); bottom: -2.5vh; width: clamp(96px, 10.4vw, 156px); z-index: 4; }
+.b-sm-l { left: 1.2vw; bottom: calc(clamp(150px, 17vw, 250px) * 0.72); width: clamp(56px, 5.6vw, 84px); z-index: 2; }
+.b-big-r { right: 2.5vw; bottom: -6vh; width: clamp(140px, 15.5vw, 232px); z-index: 3; }
+.b-sm-r { right: calc(2.5vw + clamp(104px, 11.6vw, 172px)); bottom: -1.5vh; width: clamp(70px, 7.4vw, 112px); z-index: 4; }
+.b-peek-r { right: calc(clamp(112px, 11vw, 168px) * -0.16); top: 24vh; width: clamp(112px, 11vw, 168px); z-index: 2; }
+.b-peek-t { left: 15vw; top: calc(clamp(92px, 9vw, 138px) * -0.14); width: clamp(92px, 9vw, 138px); z-index: 2; }
+.b-tiny { width: 40px; opacity: 0.92; z-index: 1; }
+.b-tiny.t1 { left: 8vw; top: 34vh; width: 44px; }
+.b-tiny.t2 { right: 22vw; top: 9vh; width: 38px; }
+.b-tiny.t3 { left: 27vw; top: 15vh; width: 30px; }
+.b-tiny.t4 { right: 12vw; top: 56vh; width: 34px; }
+.b-tiny.t5 { left: 17vw; top: 60vh; width: 28px; }
+
+/* thỏ nhỏ ló sau góc hộp quà */
+.gift-bunny {
+  position: absolute;
+  z-index: 0;
+  right: -1.7em;
+  top: calc(12px - 0.5em);
+  width: 4.6em;
+  aspect-ratio: 224 / 260;
+  transform: rotate(10deg);
+  transition: transform 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.9s ease;
+  pointer-events: none;
+}
+.gift-bunny .bn-svg { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5)); }
+.gift-lid, .gift-body { z-index: 2; }
+.gift.open .gift-bunny { transform: translate(2.5em, -6em) rotate(28deg); opacity: 0; }
+
+/* --- điện thoại --- */
+@media (max-width: 600px) {
+  .b-big-l { left: -16px; bottom: -34px; width: 128px; }
+  .b-mid-l { left: 82px; bottom: -14px; width: 84px; }
+  .b-sm-l { left: 6px; bottom: 92px; width: 46px; }
+  .b-big-r { right: -14px; bottom: -28px; width: 118px; }
+  .b-sm-r { right: 84px; bottom: -8px; width: 64px; }
+  .b-peek-r { right: -16px; top: 15vh; width: 92px; }
+  .b-peek-t { left: 9vw; top: -12px; width: 78px; }
+  .b-tiny.t1 { left: 5vw; top: 31vh; width: 32px; }
+  .b-tiny.t2 { right: 30vw; top: 5vh; width: 30px; }
+  .b-tiny.t3 { display: none; }
+  .b-tiny.t4 { right: 4vw; top: 42vh; width: 26px; }
+  .b-tiny.t5 { left: 42vw; top: 85vh; width: 26px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bunny-bob, .bn-eyes { animation: none; }
+}

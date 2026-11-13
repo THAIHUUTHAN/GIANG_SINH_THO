@@ -209,58 +209,10 @@
   /* ---------------------------------------------------------------
    *  Hiệu ứng pháo giấy khi mở quà
    * ------------------------------------------------------------- */
+  // pháo giấy khi mở quà (xem js/fx.js)
   function burst(x, y) {
-    const cv = $('#fx');
-    const ctx = cv.getContext('2d');
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    cv.width = W * dpr;
-    cv.height = H * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const colors = ['#ff4d5e', '#ffc94a', '#4cd47a', '#fff6e0', '#ff7ab8', '#5b8cff'];
-    const chars = '*+♥o.x*#@';
-    const N = 170;
-    const ps = Array.from({ length: N }, () => {
-      const a = Math.random() * Math.PI * 2;
-      const v = 180 + Math.random() * 620;
-      return {
-        x, y,
-        vx: Math.cos(a) * v,
-        vy: Math.sin(a) * v - 260,
-        ch: chars[(Math.random() * chars.length) | 0],
-        c: colors[(Math.random() * colors.length) | 0],
-        s: 12 + Math.random() * 16,
-        life: 1.2 + Math.random() * 1.1,
-        r: Math.random() * 6,
-      };
-    });
-    let last = performance.now();
-    let t = 0;
-    (function frame(now) {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      t += dt;
-      ctx.clearRect(0, 0, W, H);
-      let alive = 0;
-      for (const p of ps) {
-        if (t > p.life) continue;
-        alive++;
-        p.vy += 700 * dt;
-        p.vx *= 1 - 1.2 * dt;
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        const a = Math.max(0, 1 - t / p.life);
-        ctx.globalAlpha = a;
-        ctx.fillStyle = p.c;
-        ctx.shadowColor = p.c;
-        ctx.shadowBlur = 10 * dpr;
-        ctx.font = `${p.s}px "JetBrains Mono", monospace`;
-        ctx.fillText(p.ch, p.x, p.y);
-      }
-      if (alive) requestAnimationFrame(frame);
-      else ctx.clearRect(0, 0, W, H);
-    })(last);
+    if (window.FX) window.FX.confetti(x, y);
+    if (window.Bunnies) window.Bunnies.party();
   }
 
   /* ---------------------------------------------------------------
