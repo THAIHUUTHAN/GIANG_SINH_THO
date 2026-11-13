@@ -113,7 +113,7 @@
       ctx.font = `100px ${this.opts.font}`;
       const ratio = ctx.measureText('M').width / 100 || 0.6;
       const lineK = 1.16;
-      const ROWS_TARGET = 54;
+      const ROWS_TARGET = 48;
       const COLS_MIN = 64;
       const fontPx = Math.max(4.5, Math.min(h / ROWS_TARGET / lineK, w / COLS_MIN / ratio));
       this.fontPx = fontPx;
@@ -144,10 +144,10 @@
       this.subRow = R - 1;
       this.starRow = Math.max(1, Math.round(R * 0.03));
       this.treeTop = this.starRow + 3;
-      this.treeBase = Math.round(R * 0.81);
+      this.treeBase = Math.round(R * 0.82);
       this.Ht = this.treeBase - this.treeTop;
       const aspect = (this.aspect = this.ch / this.cw);
-      this.Rb = Math.min(this.Ht * aspect * 0.37, C / 2 - 5);
+      this.Rb = Math.min(this.Ht * aspect * 0.4, C / 2 - 7);
       this.tiltK = 0.22 / aspect; // hàng lệch / cột bán kính: vòng tròn ngang -> elip
       const baseTilt = Math.round(this.Rb * this.tiltK);
       this.groundRow = this.treeBase + baseTilt;
@@ -379,6 +379,33 @@
         }
       }
 
+      /* 4b. dải lấp lánh xoắn quanh cây (phần phía trước vẽ trước để che cây) */
+      const swirlK = k01(PH.star0, PH.star0 + 1.6);
+      const swirlBack = [];
+      if (swirlK > 0) {
+        const N = 84;
+        const COLORS = ['#ffd25a', '#fff6e0', '#ffb3c6', '#ffe9a8'];
+        for (let i = 0; i < N; i++) {
+          const stream = i % 2;
+          for (let j = 0; j < 4; j++) {
+            const u = (((i / N + T * 0.055 - j * 0.005) % 1) + 1) % 1; // tiến độ từ gốc lên ngọn
+            const y = this.treeBase + 1 - u * (this.Ht + 2);
+            const r = this.radiusAt(Math.max(this.treeTop, y)) + 2.6 + (1 - u) * 2.2;
+            const a = stream * Math.PI + u * TAU * 3 - T * 0.85;
+            const nz = Math.cos(a);
+            const col = Math.round(cx + r * Math.sin(a) - 0.5);
+            const row = Math.round(y + nz * r * this.tiltK);
+            const ends = Math.min(1, u / 0.08, (1 - u) / 0.08);
+            const al = swirlK * ends * (0.4 + 0.6 * (0.5 + 0.5 * nz)) * (j === 0 ? 1 : 0.7 - j * 0.15);
+            const ch = j === 0 ? (i % 4 === 0 ? '@' : '*') : j === 1 ? '+' : '.';
+            const color = COLORS[(i >> 1) % COLORS.length];
+            const item = [color, ch, col, row, al, j === 0 ? this.fontPx * 1.1 : this.fontPx * 0.5];
+            if (nz > 0) putGlow(...item);
+            else swirlBack.push(item);
+          }
+        }
+      }
+
       /* 5. tuyết rơi phía trước */
       for (const s of this.snow) {
         const r = Math.floor(s.y);
@@ -466,6 +493,48 @@
         }
       }
 
+      /* 7b. dải xoắn phía sau cây (chỉ hiện ở chỗ trống) */
+      for (const it of swirlBack) putGlow(...it);
+
+      /* 7c. đốm lấp lánh nhấp nháy quanh tán cây */
+      const popK = k01(PH.build1, PH.build1 + 1.5);
+      if (popK > 0) {
+        const FR = '.+*+.';
+        for (let i = 0; i < 30; i++) {
+          const per = 1.6 + hash(i, 1, 141) * 1.8;
+          const tt = T + hash(i, 2, 141) * per;
+          const cyc = Math.floor(tt / per);
+          const lt = (tt - cyc * per) / 0.75;
+          if (lt >= 1) continue;
+          const yy = this.treeTop + 2 + hash(i, cyc, 142) * (this.Ht - 1);
+          const side = hash(i, cyc, 143) < 0.5 ? -1 : 1;
+          const col = Math.round(cx + side * (this.radiusAt(yy) + 1.5 + hash(i, cyc, 144) * 5) - 0.5);
+          const color = hash(i, cyc, 145) < 0.6 ? '#ffe9a8' : '#ffffff';
+          putGlow(color, FR[Math.min(4, (lt * 5) | 0)], col, Math.round(yy), popK * (1 - Math.abs(lt - 0.5)), this.fontPx * 1.2);
+        }
+      }
+
+      /* 7d. sao băng thỉnh thoảng vụt qua bầu trời */
+      if (T > PH.star0) {
+        const P = 6.5;
+        const cyc = Math.floor(T / P);
+        const lt = T - cyc * P;
+        if (lt < 1.1) {
+          const x0 = C * (0.08 + 0.5 * hash(cyc, 1, 151));
+          const y0 = 1 + this.horizon * 0.35 * hash(cyc, 2, 151);
+          const v = 38;
+          const hx = x0 + lt * v * 2;
+          const hy = y0 + lt * v * 0.5;
+          const fade = Math.min(1, lt / 0.15, (1.1 - lt) / 0.3);
+          for (let j = 0; j < 9; j++) {
+            const c = Math.round(hx - j * 2);
+            const r = Math.round(hy - j * 0.5);
+            if (r >= this.horizon) continue;
+            putGlow(j === 0 ? '#ffffff' : '#cfe0ff', j === 0 ? '*' : j < 4 ? '-' : '.', c, r, fade * (1 - j / 9), j === 0 ? this.fontPx * 1.4 : 0);
+          }
+        }
+      }
+
       /* 8. mặt sàn */
       for (const g of this.ground) put(GROUND[g.lv], g.ch, g.c, g.row);
 
@@ -477,6 +546,31 @@
 
       /* ---------- vẽ ra canvas ---------- */
       ctx.clearRect(0, 0, this.w, this.h);
+      if (build > 0) {
+        const gx = this.ox + cx * this.cw;
+        const gy = this.oy + (this.treeTop + this.Ht * 0.62) * this.ch;
+        const rad = Math.max(10, this.Rb * this.cw * 1.55);
+        const pulse = (0.85 + 0.15 * Math.sin(T * 1.3)) * Math.min(1, build * 1.2);
+        const grd = ctx.createRadialGradient(gx, gy, 0, gx, gy, rad);
+        grd.addColorStop(0, `rgba(255, 196, 92, ${(0.22 * pulse).toFixed(3)})`);
+        grd.addColorStop(0.45, `rgba(255, 120, 90, ${(0.09 * pulse).toFixed(3)})`);
+        grd.addColorStop(1, 'rgba(255, 120, 90, 0)');
+        ctx.fillStyle = grd;
+        ctx.fillRect(gx - rad, gy - rad, rad * 2, rad * 2);
+        // vũng sáng dưới gốc
+        const fy = this.oy + (this.groundRow + 1) * this.ch;
+        ctx.save();
+        ctx.translate(gx, fy);
+        ctx.scale(1, 0.22);
+        const g2 = ctx.createRadialGradient(0, 0, 0, 0, 0, rad * 1.1);
+        g2.addColorStop(0, `rgba(255, 210, 120, ${(0.14 * pulse).toFixed(3)})`);
+        g2.addColorStop(1, 'rgba(255, 210, 120, 0)');
+        ctx.fillStyle = g2;
+        ctx.beginPath();
+        ctx.arc(0, 0, rad * 1.1, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+      }
       ctx.font = this.fontStr;
       ctx.textBaseline = 'top';
       const { ox, oy, cw, yPad } = this;

@@ -260,88 +260,6 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => tree.resize());
   }
 
-  const CODE = `// christmas_tree.js — ${FROM} viết tặng ${TO} ♥
-const RAMP = [".:-~^", "=+~vx^", "xov%*&W", "%&#@W0"];
-const LIGHTS = [RED, GOLD, BLUE, ORANGE, PINK, SNOW];
-const MESSAGE = "M E R R Y   C H R I S T M A S";
-
-function radius(row) {
-  const t = (row - TOP) / HEIGHT;
-  const tier = (t * 6) % 1;
-  return BASE_R * (0.04 + 0.96 * t) * (0.84 + 0.16 * tier ** 0.7);
-}
-
-function frame(t, dt) {
-  rotation += dt * 0.45;
-  for (let row = TOP; row <= BASE; row++) {
-    const r = radius(row);
-    for (let col = cx - r; col <= cx + r; col++) {
-      const nx = (col - cx) / r;
-      const nz = Math.sqrt(1 - nx * nx);
-      const angle = Math.atan2(nx, nz) + rotation;
-      const light = Math.max(0, -0.55 * nx + 0.83 * nz);
-      if (hash(angle, row) < 0.07) {
-        put(col, row, pick("o@*0%O"), LIGHTS[k], twinkle(t));
-        info.lights++;
-        continue;
-      }
-      put(col, row, pick(RAMP[level(light)]), green(light));
-    }
-  }
-  drawStar(t);
-  drawGifts(t);
-  const shown = Math.min(MESSAGE.length, (t - T_MSG) * 10 | 0);
-  for (const [i, ch] of [...MESSAGE.slice(0, shown)].entries()) {
-    if (ch !== " ") {
-      const tint = [RED, GOLD, GREEN][((i >> 1) + (t * 1.5 | 0)) % 3];
-      put(x0 + i, MSG_ROW, ch, tint, 0.85 + 0.25 * Math.sin(t * 5 + i));
-    }
-  }
-  info.letters = count(char => char !== " ");
-  return info;
-}
-
-// window
-const TITLE = "ASCII Christmas Tree";
-const FOR = "${TO}";
-const HINT = "Merry Christmas · ${FROM} ♥ ${TO}";
-requestAnimationFrame(loop);`;
-
-  function highlight(line) {
-    const re = /(\/\/.*$)|("(?:[^"\\]|\\.)*")|\b(const|let|function|for|if|return|continue|of|new)\b|\b([A-Z][A-Z0-9_]+)\b|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)(?=\()/g;
-    let out = '';
-    let last = 0;
-    let m;
-    while ((m = re.exec(line))) {
-      out += esc(line.slice(last, m.index));
-      const cls = m[1] ? 'c-com' : m[2] ? 'c-str' : m[3] ? 'c-kw' : m[4] ? 'c-const' : m[5] ? 'c-num' : 'c-fn';
-      out += `<span class="${cls}">${esc(m[0])}</span>`;
-      last = re.lastIndex;
-    }
-    return out + esc(line.slice(last));
-  }
-
-  function initCode() {
-    const pre = $('#code');
-    const pane = $('#codePane');
-    const lines = CODE.split('\n');
-    pre.innerHTML = lines.map((l, i) => `<span class="ln" data-n="${i + 1}">${highlight(l) || ' '}</span>`).join('');
-    const els = Array.from(pre.children);
-    const steps = els.filter((el, i) => lines[i].trim() && !lines[i].trim().startsWith('//'));
-    let k = 0;
-    let prev = null;
-    function step() {
-      const el = steps[k % steps.length];
-      if (prev) prev.classList.remove('cur');
-      el.classList.add('cur');
-      prev = el;
-      pane.scrollTo({ top: el.offsetTop - pane.clientHeight / 2 + el.offsetHeight / 2, behavior: k % steps.length === 0 ? 'auto' : 'smooth' });
-      k++;
-    }
-    step();
-    setInterval(step, 560);
-  }
-
   async function typeWish() {
     const body = $('#wishBody');
     await typeInto($('#wishText'), cfg.wish || '', cfg.typingSpeed || 60, {
@@ -720,7 +638,6 @@ requestAnimationFrame(loop);`;
     await new Promise(requestAnimationFrame);
     card.classList.add('show');
     initTree();
-    initCode();
     buildGallery();
     watchSections();
     setTimeout(() => ($('#intro').style.display = 'none'), 900);
