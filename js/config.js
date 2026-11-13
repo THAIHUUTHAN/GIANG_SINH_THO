@@ -46,12 +46,11 @@ Merry Christmas! ♥`,
    * Đặt ảnh vào assets/photos/ rồi khai báo ở đây, theo thứ tự từ trên xuống.
    * Ảnh sẽ xếp xen kẽ trái - phải. Thiếu ảnh thì hiện khung giữ chỗ. */
   photos: [
-    { src: "assets/photos/01.jpg", caption: "Kỷ niệm #1", date: "" },
-    { src: "assets/photos/02.jpg", caption: "Kỷ niệm #2", date: "" },
-    { src: "assets/photos/03.jpg", caption: "Kỷ niệm #3", date: "" },
-    { src: "assets/photos/04.jpg", caption: "Kỷ niệm #4", date: "" },
-    { src: "assets/photos/05.jpg", caption: "Kỷ niệm #5", date: "" },
-    { src: "assets/photos/06.jpg", caption: "Kỷ niệm #6", date: "" },
+    { src: "assets/photos/01.jpg", caption: "Thỏ iu và bạn Totoro", date: "" },
+    { src: "assets/photos/02.jpg", caption: "Cún dạo phố cổ", date: "" },
+    { src: "assets/photos/03.jpg", caption: "Tai thỏ cho Thỏ iu", date: "" },
+    { src: "assets/photos/04.jpg", caption: "Thơm má một cái nè", date: "" },
+    { src: "assets/photos/05.jpg", caption: "Hai đứa mình", date: "" },
   ],
 
   /* ---------- Lời bài hát "Santa Tell Me" ----------

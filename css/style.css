@@ -408,6 +408,7 @@ button { font: inherit; color: inherit; }
   height: auto;
   max-height: 74vh;
   object-fit: cover;
+  object-position: center 30%;
 }
 .frame figcaption {
   padding: 10px 14px 12px;
