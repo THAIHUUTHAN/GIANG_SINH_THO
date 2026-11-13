@@ -1,38 +1,57 @@
 /* =====================================================================
  *  ASCII Christmas Tree — vẽ cây thông bằng ký tự trên <canvas>
- *  Cây là một hình nón 3D xoay quanh trục đứng, được chiếu lên lưới ký tự.
+ *
+ *  Cây là một hình nón 3D xoay quanh trục đứng, nhìn hơi từ trên xuống,
+ *  được chiếu lên lưới ký tự. Cây được "dựng" theo từng giai đoạn:
+ *    1. build    — vòng sáng trắng dựng thân cây từ dưới lên
+ *    2. garland  — dải sáng quét từ trên xuống, để lại kim tuyến vàng
+ *    3. baubles  — quả châu đỏ lần lượt xuất hiện
+ *    4. gifts    — hộp quà rơi xuống gốc cây
+ *    5. star     — ngôi sao trên đỉnh lóe sáng
+ *    6. lights   — đèn nhấp nháy + dòng chữ MERRY CHRISTMAS
  * ===================================================================== */
 (function (global) {
   'use strict';
 
   const TAU = Math.PI * 2;
 
+  /* ---------- thời gian từng giai đoạn (giây) ---------- */
+  const PH = {
+    build0: 0.4, build1: 4.6,
+    sweep0: 4.9, sweep1: 7.1,
+    baub0: 7.0, baub1: 8.6,
+    gift0: 8.4,
+    star0: 9.5,
+    light0: 10.0,
+    msg: 10.6,
+  };
+
   /* ---------- bảng màu ---------- */
   const RED = '#ff4d5e';
   const GOLD = '#ffc94a';
   const GREEN = '#4cd47a';
-  const LIGHT_COLORS = ['#ff4d5e', '#ffc94a', '#5b8cff', '#ff8a3d', '#ff7ab8', '#fff6e0', '#ffc94a', '#ff4d5e', '#4ad9ff'];
+  const LIGHT_COLORS = ['#ffc94a', '#fff6e0', '#ff4d5e', '#5b8cff', '#ff8a3d', '#ffc94a', '#ff7ab8', '#fff6e0'];
   const LIGHT_CHARS = 'o@*0%O&';
   const RAMP = ['.:-~^\'', '=+~vx^', 'xov%*&W', '%&#@W0#'];
-  const GARLAND = '~=~*~-';
+  const GARLAND = '~=@*#~=';
   const GREEN_LV = 7;
   const GREENS = [0, 1].map(v =>
     Array.from({ length: GREEN_LV }, (_, i) => {
       const k = i / (GREEN_LV - 1);
       return v === 0
-        ? `hsl(138, 58%, ${(14 + k * 40).toFixed(1)}%)`
-        : `hsl(100, 46%, ${(13 + k * 36).toFixed(1)}%)`;
+        ? `hsl(134, 62%, ${(15 + k * 38).toFixed(1)}%)`
+        : `hsl(104, 50%, ${(14 + k * 34).toFixed(1)}%)`;
     })
   );
-  const GOLDS = Array.from({ length: 5 }, (_, i) => `hsla(43, 100%, ${48 + i * 6}%, ${(0.35 + i * 0.15).toFixed(2)})`);
-  const SKY = Array.from({ length: 5 }, (_, i) => `rgba(200, 215, 255, ${(0.12 + i * 0.17).toFixed(2)})`);
-  const GROUND = Array.from({ length: 5 }, (_, i) => `rgba(140, 155, 195, ${(0.10 + i * 0.075).toFixed(3)})`);
-  const TRUNK = ['#6e3a22', '#8f4b2c', '#ad5f37'];
-  const GIFT_STYLES = [
-    { body: ['#24449f', '#2f55d4', '#3f6fff', '#6f96ff'], ribbon: '#ffd25a', chars: '%#@&x+' },
-    { body: ['#9c1a28', '#c9283a', '#ff4d5e', '#ff7a86'], ribbon: '#ffd25a', chars: '%#x=+&' },
-    { body: ['#18703a', '#25964e', '#3cc46c'], ribbon: '#ff4d5e', chars: '#%x+=' },
-  ];
+  const GOLDS = Array.from({ length: 5 }, (_, i) => `hsl(${42 + i * 2}, 100%, ${46 + i * 7}%)`);
+  const WHITES = ['#c9d3e6', '#e9eef8', '#ffffff'];
+  const SKY = Array.from({ length: 5 }, (_, i) => `rgba(215, 225, 255, ${(0.14 + i * 0.18).toFixed(2)})`);
+  const GROUND = Array.from({ length: 5 }, (_, i) => `rgba(150, 162, 195, ${(0.13 + i * 0.07).toFixed(3)})`);
+  const GIFT_STYLES = {
+    blue: { body: ['#24449f', '#2f55d4', '#3f6fff', '#6f96ff'], ribbon: '#f4f1e8', chars: '%#@&x+' },
+    red: { body: ['#9c1a28', '#c9283a', '#ff4d5e', '#ff7a86'], ribbon: '#ffe0e4', chars: '%#x=+&X' },
+    red2: { body: ['#8f1624', '#c4243a', '#f0425a', '#ff7a86'], ribbon: '#ffd25a', chars: '#%x+=&' },
+  };
   const STAR_ART = [
     '     *     ',
     '    /#\\    ',
@@ -50,6 +69,7 @@
     return (h >>> 0) / 4294967296;
   }
   const pick = (s, k) => s[Math.min(s.length - 1, (k * s.length) | 0)];
+  const clamp01 = v => (v < 0 ? 0 : v > 1 ? 1 : v);
 
   class AsciiTree {
     constructor(canvas, opts) {
@@ -71,7 +91,7 @@
       this.running = false;
       this.frames = 0;
       this.fpsT = 0;
-      this.stats = { rotation: 0, lights: 0, letters: 0, fps: 0 };
+      this.stats = { rotation: 0, lights: 0, letters: 0, fps: 0, stage: 'init' };
       this._loop = this._loop.bind(this);
       this.resize();
     }
@@ -93,15 +113,15 @@
       ctx.font = `100px ${this.opts.font}`;
       const ratio = ctx.measureText('M').width / 100 || 0.6;
       const lineK = 1.16;
-      const ROWS_TARGET = 56;
-      const COLS_MIN = 62;
+      const ROWS_TARGET = 54;
+      const COLS_MIN = 64;
       const fontPx = Math.max(4.5, Math.min(h / ROWS_TARGET / lineK, w / COLS_MIN / ratio));
       this.fontPx = fontPx;
       this.fontStr = `${fontPx.toFixed(2)}px ${this.opts.font}`;
       this.cw = fontPx * ratio;
       this.ch = fontPx * lineK;
       this.cols = Math.max(10, Math.floor(w / this.cw));
-      this.rows = Math.max(20, Math.floor(h / this.ch));
+      this.rows = Math.max(24, Math.floor(h / this.ch));
       this.ox = (w - this.cols * this.cw) / 2;
       this.oy = (h - this.rows * this.ch) / 2;
       this.yPad = (this.ch - fontPx) / 2;
@@ -110,74 +130,82 @@
       if (!this.running) this._frame();
     }
 
+    radiusAt(y) {
+      const t = (y - this.treeTop) / this.Ht;
+      return this.Rb * (0.03 + 0.97 * t);
+    }
+
     _layout() {
       const R = this.rows;
       const C = this.cols;
-      this.cx = C / 2;
-      this.msgRow = R - 4;
-      this.subRow = R - 2;
-      this.treeBase = Math.round(R * 0.73);
-      this.starRow = Math.max(1, Math.round(R * 0.05));
-      this.treeTop = this.starRow + 4;
+      const cx = (this.cx = C / 2);
+      this.horizon = Math.round(R * 0.55);
+      this.msgRow = R - 3;
+      this.subRow = R - 1;
+      this.starRow = Math.max(1, Math.round(R * 0.03));
+      this.treeTop = this.starRow + 3;
+      this.treeBase = Math.round(R * 0.81);
       this.Ht = this.treeBase - this.treeTop;
-      const aspect = this.ch / this.cw;
-      this.aspect = aspect;
-      this.Rb = Math.min(this.Ht * aspect * 0.41, C / 2 - 3);
+      const aspect = (this.aspect = this.ch / this.cw);
+      this.Rb = Math.min(this.Ht * aspect * 0.37, C / 2 - 5);
+      this.tiltK = 0.22 / aspect; // hàng lệch / cột bán kính: vòng tròn ngang -> elip
+      const baseTilt = Math.round(this.Rb * this.tiltK);
+      this.groundRow = this.treeBase + baseTilt;
 
-      // bán kính từng hàng: hình nón có các tầng cành
-      this.radius = [];
-      for (let row = this.treeTop; row <= this.treeBase; row++) {
-        const t = (row - this.treeTop) / this.Ht;
-        const local = (t * 6) % 1;
-        let r = this.Rb * (0.04 + 0.96 * t) * (0.84 + 0.16 * Math.pow(local, 0.7));
-        r += (hash(row, 7, 0) - 0.5) * 1.1;
-        this.radius[row] = Math.max(0.6, r);
-      }
-
-      // thân cây
-      this.trunkW = Math.max(2, Math.round(this.Rb * 0.14));
-
-      // hộp quà dưới gốc
-      const gw = Math.max(7, Math.round(this.Rb * 0.5));
-      const gh = Math.max(4, Math.round(gw / aspect * 1.05));
-      const bottom = this.treeBase + 3;
-      const cx = this.cx;
+      /* hộp quà */
+      const giftH = w => Math.max(3, Math.round((w / aspect) * 1.05));
       const clampX = (x, w) => Math.max(1, Math.min(C - w - 1, x));
+      const mk = (style, x, w, bottom, delay, hk) => {
+        const h = Math.round(giftH(w) * (hk || 1));
+        return { style, w, h, x0: clampX(Math.round(x), w), top: bottom - h + 1, delay };
+      };
+      const gw = Math.max(7, Math.round(this.Rb * 0.42));
+      const frontBottom = Math.min(this.msgRow - 2, this.groundRow + 1);
       this.gifts = [
-        { style: 0, w: gw, h: gh, x0: clampX(Math.round(cx - this.Rb - gw * 0.35), gw), top: bottom - gh + 1 },
-        { style: 1, w: gw - 1, h: gh - 1, x0: clampX(Math.round(cx + this.Rb - gw * 0.7), gw - 1), top: bottom - gh + 2 },
-        { style: 2, w: Math.max(5, gw - 4), h: Math.max(3, gh - 2), x0: clampX(Math.round(cx + this.Rb + gw * 0.05), Math.max(5, gw - 4)), top: bottom - Math.max(3, gh - 2) + 1 },
+        mk('blue', cx - this.Rb * 1.18, gw, this.groundRow - 1, 0, 1.6),
+        mk('red', cx + this.Rb * 0.74, gw, this.groundRow - 1, 0.3, 1.35),
+        mk('red2', cx + this.Rb * 0.02, Math.max(6, gw - 2), frontBottom, 0.6, 1.15),
       ];
 
-      // các ngôi sao nền (cố định vị trí)
+      /* quả châu: vị trí cố định trên bề mặt nón (xoay theo cây) */
+      const N = Math.max(10, Math.min(34, Math.round(this.Ht * 0.55)));
+      this.baubles = Array.from({ length: N }, (_, i) => {
+        const t = 0.14 + 0.82 * hash(i, 3, 81);
+        const k = hash(i, 4, 81);
+        return {
+          t,
+          a0: hash(i, 1, 81) * TAU,
+          big: t > 0.3,
+          gold: k > 0.86,
+          appear: PH.baub0 + hash(i, 2, 81) * (PH.baub1 - PH.baub0),
+        };
+      });
+
+      /* bầu trời sao (cố định vị trí) */
       this.stars = [];
-      for (let row = 0; row < this.treeBase; row++) {
+      for (let row = 0; row < R; row++) {
+        const dens = row < this.horizon ? 0.05 : 0.008;
         for (let c = 0; c < C; c++) {
-          const k = hash(c, row, 31);
-          if (k > 0.034) continue;
-          const rr = this.radius[row];
-          if (rr !== undefined && Math.abs(c + 0.5 - cx) < rr + 2) continue;
-          this.stars.push({ c, row, ch: pick('++..*·+', hash(c, row, 32)), ph: hash(c, row, 33) * TAU, sp: 0.6 + hash(c, row, 34) * 2.2 });
+          if (hash(c, row, 31) > dens) continue;
+          this.stars.push({ c, row, ch: pick('+++*.*·', hash(c, row, 32)), ph: hash(c, row, 33) * TAU, sp: 0.6 + hash(c, row, 34) * 2.2 });
         }
       }
 
-      // mặt đất
+      /* mặt sàn kẻ ô */
       this.ground = [];
-      const g0 = this.treeBase + 1;
-      for (let row = g0; row < R; row++) {
-        const d = (row - g0 + 1) / (R - g0);
+      for (let row = this.horizon; row < R; row++) {
+        const d = (row - this.horizon + 1) / (R - this.horizon);
+        const lv = Math.min(4, Math.floor(d * 4.5));
         for (let c = 0; c < C; c++) {
-          const ex = (c + 0.5 - cx) / (this.Rb * 1.25);
-          const ey = (row - (this.treeBase + 2)) / 2.6;
-          const shadow = ex * ex + ey * ey < 1;
-          const dens = (shadow ? 0.08 : 0.2) + 0.38 * d;
-          if (hash(c, row, 21) > dens) continue;
-          this.ground.push({ c, row, ch: pick('..--_:.,-', hash(c, row, 22)), lv: Math.min(4, (d * 3 + hash(c, row, 23) * 2) | 0) });
+          let ch = '';
+          if ((row - this.horizon) % 2 === 0) ch = c % 2 === 0 ? '-' : '';
+          else ch = (c + row) % 4 === 0 ? '.' : '';
+          if (ch) this.ground.push({ c, row, ch, lv });
         }
       }
 
-      // tuyết rơi trong khung
-      const n = Math.round(C * 0.22);
+      /* tuyết rơi trong khung */
+      const n = Math.round(C * 0.18);
       this.snow = Array.from({ length: n }, (_, i) => ({
         x: hash(i, 1, 51) * C,
         y: hash(i, 2, 51) * R,
@@ -206,7 +234,14 @@
       const step = Math.min(dt, 100) / 1000;
       this.t += step;
       this.rot += step * 0.45;
-      this._update(step);
+      for (const s of this.snow) {
+        s.y += s.v * step;
+        s.x += Math.sin(this.t * 0.8 + s.sw) * step * 0.8;
+        if (s.y >= this.rows) {
+          s.y = -1;
+          s.x = Math.random() * this.cols;
+        }
+      }
       this._frame();
 
       this.frames++;
@@ -216,16 +251,6 @@
         this.frames = 0;
         this.fpsT = 0;
         if (this.opts.onStats) this.opts.onStats(this.stats);
-      }
-    }
-    _update(dt) {
-      for (const s of this.snow) {
-        s.y += s.v * dt;
-        s.x += Math.sin(this.t * 0.8 + s.sw) * dt * 0.8;
-        if (s.y >= this.rows) {
-          s.y = -1;
-          s.x = Math.random() * this.cols;
-        }
       }
     }
 
@@ -258,20 +283,26 @@
         letters++;
       };
       const putGlow = (color, ch, c, r, a, blur) => {
-        if (!take(c, r)) return;
+        if (a <= 0.01 || !take(c, r)) return;
         glow.push(ch, c, r, color, a, blur);
         letters++;
       };
 
-      // tiến trình "in" cảnh từ trên xuống
-      const p = Math.min(1, Math.max(0, (T - 0.2) / 3.2));
-      const rev = -1 + p * (R + 2);
+      const k01 = (a, b) => clamp01((T - a) / (b - a));
+      const build = k01(PH.build0, PH.build1);
+      const buildFrom = this.treeBase - build * (this.Ht + 0.5);
+      const sweep = k01(PH.sweep0, PH.sweep1);
+      const sweeping = sweep > 0 && sweep < 1;
+      const sweepY = this.treeTop - 1 + sweep * (this.Ht + 3);
+      const lightK = k01(PH.light0, PH.light0 + 1.2);
+
+      this.stats.stage =
+        T < PH.build0 ? 'init' : build < 1 ? `build ${Math.round(build * 100)}%` : T < PH.sweep1 ? 'garland' : T < PH.gift0 ? 'baubles' : T < PH.star0 ? 'gifts' : T < PH.light0 ? 'star' : 'lights ✓';
 
       /* 1. dòng chữ MERRY CHRISTMAS */
-      const T_MSG = 3.5;
-      if (T > T_MSG) {
+      if (T > PH.msg) {
         const msg = this.msg;
-        const shown = Math.min(msg.length, ((T - T_MSG) * 10) | 0);
+        const shown = Math.min(msg.length, ((T - PH.msg) * 10) | 0);
         const x0 = Math.round(cx - msg.length / 2);
         const tints = [RED, GOLD, GREEN];
         for (let i = 0; i < shown; i++) {
@@ -281,128 +312,162 @@
           putGlow(tint, ch, x0 + i, this.msgRow, Math.min(1, 0.85 + 0.25 * Math.sin(T * 5 + i)), this.fontPx * 0.8);
         }
         const sub = this.opts.subtitle;
-        if (sub && shown >= msg.length && this.subRow < R) {
-          const a = Math.min(1, (T - T_MSG - msg.length / 10) / 1.5);
+        if (sub && shown >= msg.length && this.subRow < R && this.subRow > this.msgRow) {
+          const a = Math.min(1, (T - PH.msg - msg.length / 10) / 1.5);
           const sx = Math.round(cx - sub.length / 2);
-          for (let i = 0; i < sub.length; i++) {
-            if (sub[i] !== ' ') putGlow('#c9b98f', sub[i], sx + i, this.subRow, a * 0.75, 0);
-          }
+          for (let i = 0; i < sub.length; i++) if (sub[i] !== ' ') putGlow('#c9b98f', sub[i], sx + i, this.subRow, a * 0.75, 0);
         }
       }
 
-      /* 2. ngôi sao đỉnh cây */
-      if (T > 0.1) {
-        const a = Math.min(1, T / 0.8) * (0.82 + 0.18 * Math.sin(T * 3));
+      /* 2. ngôi sao: lóe trắng rồi chuyển vàng, có tia sáng */
+      if (T > PH.star0) {
+        const st = T - PH.star0;
+        const flash = Math.max(0, 1 - st / 0.6); // 1 -> 0
+        const a = Math.min(1, st / 0.25) * (0.85 + 0.15 * Math.sin(T * 3));
         const sx = Math.round(cx - 5.5);
         STAR_ART.forEach((line, dy) => {
           for (let i = 0; i < line.length; i++) {
             const ch = line[i];
             if (ch === ' ') continue;
-            const color = ch === '@' ? '#fff4c2' : ch === '#' ? '#ffd25a' : '#ffb62e';
-            putGlow(color, ch, sx + i, this.starRow + dy, a, this.fontPx * 1.4);
+            const color = flash > 0.35 ? '#ffffff' : ch === '@' ? '#fff4c2' : ch === '#' ? '#ffd25a' : '#ffb62e';
+            putGlow(color, ch, sx + i, this.starRow + dy, a, this.fontPx * (1.3 + flash * 2));
           }
         });
-        // tia sáng hai bên
-        const sr = this.starRow + 2;
-        for (let d = 0; d < 6; d++) {
-          const k = 0.5 + 0.5 * Math.sin(T * 2.4 - d * 0.9);
-          const al = (1 - d / 6) * k * 0.6 * Math.min(1, T / 1.2);
-          putGlow('#ffcf6a', '-', sx - 2 - d * 2, sr, al, 0);
-          putGlow('#ffcf6a', '-', sx + 12 + d * 2, sr, al, 0);
-        }
-        for (let d = 1; d <= 2; d++) {
-          if (this.starRow - d >= 0) putGlow('#ffcf6a', ':', sx + 5, this.starRow - d, 0.4 * (1 - d / 3) * (0.5 + 0.5 * Math.sin(T * 2 - d)), 0);
-        }
-      }
-
-      /* 3. hộp quà */
-      for (const g of this.gifts) this._gift(g, T, put, rev);
-
-      /* 4. thân cây */
-      for (let row = this.treeBase + 1; row <= this.treeBase + 3; row++) {
-        if (row > rev) break;
-        for (let c = Math.round(cx - this.trunkW); c < Math.round(cx + this.trunkW); c++) {
-          const k = hash(c, row, ((T * 2) | 0) + 61);
-          put(TRUNK[(hash(c, row, 62) * 3) | 0], pick('#%=x+#', k), c, row);
+        const scx = sx + 5;
+        const scy = this.starRow + 2;
+        const RAYS = [[0, -1, '|'], [1, 0, '-'], [-1, 0, '-'], [2, -1, '/'], [-2, -1, '\\'], [2, 1, '\\'], [-2, 1, '/']];
+        const len = 5 + Math.round(flash * 10);
+        for (const [dx, dy, ch] of RAYS) {
+          for (let d = 1; d <= len; d++) {
+            const c = scx + dx * (d + (dx && !dy ? 5 : 1));
+            const r = scy + dy * (d + (dy && !dx ? 2 : 0));
+            const fall = 1 - d / (len + 1);
+            const al = (0.16 + 0.1 * Math.sin(T * 2.2 - d * 0.7)) * fall + flash * fall * 0.9;
+            putGlow(flash > 0.2 ? '#ffffff' : '#ffd98a', ch, c, r, al, flash * this.fontPx);
+          }
         }
       }
 
-      /* 5. tuyết rơi phía trước cây */
-      if (p > 0.3) {
-        for (const s of this.snow) {
-          const c = Math.floor(s.x);
-          const r = Math.floor(s.y);
-          if (r >= this.msgRow - 1) continue;
-          put('rgba(235, 242, 255, 0.55)', s.ch, c, r);
+      /* 3. hộp quà rơi xuống */
+      for (const g of this.gifts) {
+        const k = k01(PH.gift0 + g.delay, PH.gift0 + g.delay + 0.4);
+        if (k <= 0) continue;
+        const drop = Math.round((1 - k) * (1 - k) * 6);
+        this._gift(g, T, put, drop);
+      }
+
+      /* 4. quả châu */
+      for (const b of this.baubles) {
+        if (T < b.appear) continue;
+        const y = this.treeTop + b.t * this.Ht;
+        const r = this.radiusAt(y);
+        const a = b.a0 + this.rot;
+        const nx = Math.sin(a);
+        const nz = Math.cos(a);
+        if (nz < 0.12) continue;
+        const col = Math.round(cx + r * nx * 0.9 - 0.5);
+        const row = Math.round(y + nz * r * this.tiltK);
+        const pop = T - b.appear < 0.18;
+        const base = b.gold ? ['#fff0b8', '#ffc94a', '#e09a1c'] : ['#ffb3bc', '#ff3b4f', '#c81e33'];
+        const shade = 0.55 + 0.45 * Math.max(0, -0.5 * nx + 0.86 * nz);
+        const cells = b.big
+          ? [[-1, 0, '&', 0], [0, 0, '@', 1], [1, 0, '0', 1], [-1, 1, '0', 1], [0, 1, '#', 1], [1, 1, '&', 2]]
+          : [[0, 0, '@', 0], [1, 0, '0', 1]];
+        for (const [dx, dy, ch, lv] of cells) {
+          const color = pop ? '#ffffff' : base[lv];
+          putGlow(color, ch, col + dx, row + dy, shade, this.fontPx * (pop ? 1.5 : 0.45));
         }
       }
 
-      /* 6. thân cây thông (hình nón 3D xoay) */
-      for (let row = this.treeTop; row <= this.treeBase; row++) {
-        if (row > rev) break;
-        const r = this.radius[row];
-        const tRow = (row - this.treeTop) / this.Ht;
+      /* 5. tuyết rơi phía trước */
+      for (const s of this.snow) {
+        const r = Math.floor(s.y);
+        if (r >= this.msgRow - 1) continue;
+        put('rgba(235, 242, 255, 0.5)', s.ch, Math.floor(s.x), r);
+      }
+
+      /* 6. vòng sáng dựng cây (mặt cắt + viền) */
+      if (build > 0 && build < 1) {
+        const y0 = Math.max(this.treeTop, buildFrom);
+        const r0 = this.radiusAt(y0);
+        const tl = r0 * this.tiltK;
+        const n = Math.max(16, Math.ceil(TAU * r0 * 1.6));
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * TAU;
+          const c = Math.floor(cx + r0 * Math.sin(a));
+          const rr = y0 + Math.cos(a) * tl;
+          const ch = hash(i, (T * 12) | 0, 91) < 0.25 ? '=' : '#';
+          putGlow(WHITES[2], ch, c, Math.round(rr), 0.95, this.fontPx * 0.9);
+          if (Math.cos(a) > 0.2) putGlow(WHITES[1], '#', c, Math.round(rr) + 1, 0.8, this.fontPx * 0.6);
+        }
+        // mặt cắt bên trong
+        for (let c = Math.ceil(cx - r0); c < cx + r0; c++) {
+          const nx = (c + 0.5 - cx) / r0;
+          if (Math.abs(nx) >= 1) continue;
+          const nz = Math.sqrt(1 - nx * nx);
+          for (let row = Math.round(y0 - nz * tl) + 1; row < Math.round(y0 + nz * tl); row++) {
+            put(GREENS[0][2 + ((hash(c, row, 92) * 3) | 0)], pick('xv%&*', hash(c, row, 93)), c, row);
+          }
+        }
+      }
+
+      /* 7. bề mặt cây (hình nón 3D xoay) */
+      const yStart = Math.max(this.treeTop, Math.ceil(buildFrom * 2) / 2);
+      for (let y = yStart; y <= this.treeBase; y += 0.5) {
+        const t = (y - this.treeTop) / this.Ht;
+        const r = this.radiusAt(y);
+        const tilt = r * this.tiltK;
+        const yi = Math.round(y * 2);
         const bins = Math.max(10, Math.round(TAU * r * 0.8));
-        const gw = 2.2 / this.Ht / 2 + 0.6 / (TAU * r);
+        const gwid = 0.045 + 0.35 / (TAU * r);
         const c0 = Math.ceil(cx - r - 0.5);
         const c1 = Math.floor(cx + r - 0.5);
         for (let c = c0; c <= c1; c++) {
           const nx = (c + 0.5 - cx) / r;
           if (nx < -1 || nx > 1) continue;
           const nz = Math.sqrt(1 - nx * nx);
+          const row = Math.round(y + nz * tilt);
           let ang = Math.atan2(nx, nz) + this.rot;
           ang = ((ang % TAU) + TAU) % TAU;
           const bin = Math.floor((ang / TAU) * bins);
-          const lam = Math.max(0, -0.55 * nx + 0.83 * nz);
-          let b = (0.3 + 0.7 * lam) * (0.72 + 0.28 * hash(bin, row, 2));
+          // mép răng cưa
+          if (Math.abs(nx) > 0.86 && hash(bin, yi, 9) < 0.45) continue;
+          const lam = Math.max(0, -0.5 * nx + 0.86 * nz);
+          const b = (0.32 + 0.68 * lam) * (0.72 + 0.28 * hash(bin, yi, 2));
 
+          // dải sáng đang quét
+          if (sweeping && Math.abs(y - sweepY) < 0.9) {
+            put(WHITES[(b * 2.99) | 0], hash(c, yi, (T * 15) | 0) < 0.5 ? '=' : '#', c, row);
+            continue;
+          }
+          // kim tuyến vàng xoắn quanh cây
+          if (t > 0.05 && y < sweepY - 0.9) {
+            const sp = (ang / TAU + t * 4.5) % 1;
+            if (Math.abs(sp - 0.5) < gwid) {
+              put(GOLDS[Math.min(4, (b * 5) | 0)], pick(GARLAND, hash(bin, yi, 8)), c, row);
+              continue;
+            }
+          }
           // đèn nhấp nháy
-          const hv = hash(bin, row, 1);
-          if (hv < 0.08 && tRow > 0.05) {
-            const k = hash(bin, row, 5);
+          if (lightK > 0 && t > 0.04 && hash(bin, yi, 1) < 0.06) {
+            const k = hash(bin, yi, 5);
             const color = LIGHT_COLORS[(k * LIGHT_COLORS.length) | 0];
             const tw = 0.5 + 0.5 * Math.sin(T * (1.5 + k * 3) + k * 40);
-            const a = (0.35 + 0.65 * tw) * (0.6 + 0.4 * lam);
-            putGlow(color, pick(LIGHT_CHARS, hash(bin, row, 6)), c, row, a, this.fontPx * 0.9);
+            putGlow(color, pick(LIGHT_CHARS, hash(bin, yi, 6)), c, row, lightK * (0.35 + 0.65 * tw) * (0.6 + 0.4 * lam), this.fontPx * 0.9);
             lights++;
             continue;
           }
-
-          // dây kim tuyến xoắn
-          const sp = (ang / TAU + tRow * 2.2) % 1;
-          if (Math.abs(sp - 0.5) < gw && tRow > 0.08) {
-            put(GOLDS[Math.min(4, (b * 5) | 0)], pick(GARLAND, hash(bin, row, 8)), c, row);
-            continue;
-          }
-
           // lá thông
-          const lvl = Math.min(3, (b * 4) | 0);
-          const set = RAMP[lvl];
-          let ch = pick(set, hash(bin, row, 3));
+          const set = RAMP[Math.min(3, (b * 4) | 0)];
+          let ch = pick(set, hash(bin, yi, 3));
           const fk = (T * 4) | 0;
           if (hash(c, row, fk) < 0.025) ch = pick(set, hash(c, row, fk + 7));
-          const variant = hash(bin, row, 4) < 0.3 ? 1 : 0;
-          put(GREENS[variant][Math.min(GREEN_LV - 1, (b * GREEN_LV) | 0)], ch, c, row);
+          put(GREENS[hash(bin, yi, 4) < 0.3 ? 1 : 0][Math.min(GREEN_LV - 1, (b * GREEN_LV) | 0)], ch, c, row);
         }
       }
 
-      /* 7. vệt quét lúc cây đang hiện ra */
-      if (p < 1) {
-        const row = Math.floor(rev) + 1;
-        const rr = this.radius[row] !== undefined ? this.radius[row] : this.Rb * 0.9;
-        const fk = (T * 20) | 0;
-        for (let c = Math.ceil(cx - rr); c < cx + rr; c++) {
-          if (hash(c, row, fk) < 0.5) put(hash(c, row, fk + 1) < 0.5 ? '#fff3c4' : '#ffc94a', pick('*+x#@%', hash(c, row, fk + 2)), c, row);
-        }
-      }
-
-      /* 8. mặt đất */
-      const gk = (T * 2) | 0;
-      for (const g of this.ground) {
-        if (g.row > rev) continue;
-        if (hash(g.c, g.row, gk) < 0.008) put('rgba(255, 255, 255, 0.8)', '*', g.c, g.row);
-        else put(GROUND[g.lv], g.ch, g.c, g.row);
-      }
+      /* 8. mặt sàn */
+      for (const g of this.ground) put(GROUND[g.lv], g.ch, g.c, g.row);
 
       /* 9. bầu trời sao */
       for (const s of this.stars) {
@@ -415,10 +480,10 @@
       ctx.font = this.fontStr;
       ctx.textBaseline = 'top';
       const { ox, oy, cw, yPad } = this;
-      const ch = this.ch;
+      const chh = this.ch;
       for (const [color, arr] of buckets) {
         ctx.fillStyle = color;
-        for (let i = 0; i < arr.length; i += 3) ctx.fillText(arr[i], ox + arr[i + 1] * cw, oy + arr[i + 2] * ch + yPad);
+        for (let i = 0; i < arr.length; i += 3) ctx.fillText(arr[i], ox + arr[i + 1] * cw, oy + arr[i + 2] * chh + yPad);
       }
       ctx.save();
       for (let i = 0; i < glow.length; i += 6) {
@@ -427,42 +492,37 @@
         ctx.fillStyle = color;
         ctx.shadowColor = color;
         ctx.shadowBlur = glow[i + 5] * this.dpr;
-        ctx.fillText(glow[i], ox + glow[i + 1] * cw, oy + glow[i + 2] * ch + yPad);
+        ctx.fillText(glow[i], ox + glow[i + 1] * cw, oy + glow[i + 2] * chh + yPad);
       }
       ctx.restore();
 
-      const deg = ((this.rot * 180) / Math.PI) % 360;
-      this.stats.rotation = deg;
+      this.stats.rotation = ((this.rot * 180) / Math.PI) % 360;
       this.stats.lights = lights;
       this.stats.letters = letters;
     }
 
-    _gift(g, T, put, rev) {
+    _gift(g, T, put, drop) {
       const st = GIFT_STYLES[g.style];
       const mid = (g.w - 1) / 2;
       const midR = Math.floor(g.h * 0.4);
-      // nơ
-      const br = g.top - 1;
-      if (br <= rev) {
-        const bc = Math.round(g.x0 + mid);
-        put(st.ribbon, '@', bc - 1, br);
-        put(st.ribbon, '&', bc, br);
-        put(st.ribbon, '@', bc + 1, br);
-      }
+      const top = g.top - drop;
+      const bc = Math.round(g.x0 + mid);
+      put(st.ribbon, '@', bc - 1, top - 1);
+      put(st.ribbon, '&', bc, top - 1);
+      put(st.ribbon, '@', bc + 1, top - 1);
       const slow = (T * 1.2) | 0;
       for (let r = 0; r < g.h; r++) {
-        const row = g.top + r;
-        if (row > rev) continue;
+        const row = top + r;
         for (let c = 0; c < g.w; c++) {
           const col = g.x0 + c;
           const ribV = Math.abs(c - mid) < 0.75;
           const ribH = r === midR;
           if (ribV || ribH) {
-            put(st.ribbon, ribV && ribH ? '#' : ribV ? '|' : '=', col, row);
+            put(st.ribbon, ribV && ribH ? '#' : ribV ? 'X' : '=', col, row);
             continue;
           }
           const edge = c === 0 || c === g.w - 1 || r === g.h - 1;
-          const k = hash(col, row, slow + g.style * 97);
+          const k = hash(col, row, slow + g.w * 97);
           let lv = edge ? (hash(col, row, 71) < 0.5 ? 0 : 1) : 1 + ((hash(col, row, 72) * (st.body.length - 1)) | 0);
           if (r === 0) lv = st.body.length - 1;
           put(st.body[Math.min(st.body.length - 1, lv)], pick(st.chars, k), col, row);
@@ -471,5 +531,6 @@
     }
   }
 
+  AsciiTree.FINALE = PH.msg + 2.2; // thời điểm cây dựng xong hoàn toàn (giây)
   global.AsciiTree = AsciiTree;
 })(window);

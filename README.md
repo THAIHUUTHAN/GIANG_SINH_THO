@@ -50,6 +50,7 @@ Dán lời bài hát dạng **LRC** vào mục `lrc` trong `js/config.js`. Mỗi
 Khi có `lrc` và file `santa-tell-me.mp3`, lời sẽ chạy đúng theo giây nhạc đang phát, hiện bên cạnh bức ảnh đang ở giữa màn hình.
 Dòng đang hát sáng dần theo nhạc, kèm dòng trước và dòng sau.
 
+- **Canh lời chính xác:** mở `tools/canh-loi.html` (chạy server như phần bên dưới, rồi vào http://localhost:8000/tools/canh-loi.html). Bấm *Bắt đầu gõ nhịp*, chạm nút đỏ hoặc phím Space đúng lúc mỗi câu bắt đầu, nghe thử, chỉnh từng câu bằng nút −/+ 0,1 giây, rồi *Sao chép LRC* và dán đè lên mục `lrc`.
 - Nếu lời chạy sớm hoặc muộn so với nhạc, thêm dòng `[offset:+300]` (lời hiện sớm hơn 0,3 giây) hoặc `[offset:-300]` (lời hiện muộn hơn 0,3 giây).
 - Với `autoScroll.matchSong: true`, trang tự tính tốc độ cuộn để cuộn hết phần ảnh vừa đúng lúc bài hát kết thúc.
 

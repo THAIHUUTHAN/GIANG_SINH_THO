@@ -177,7 +177,7 @@
           const D = 1800;
           (function fade(now) {
             if (id !== fadeId) return;
-            const k = Math.min(1, (now - t0) / D);
+            const k = Math.max(0, Math.min(1, (now - t0) / D));
             next.volume = vol * k;
             prev.volume = vol * (1 - k);
             if (k < 1) requestAnimationFrame(fade);
@@ -273,6 +273,7 @@
       message: cfg.treeMessage || 'MERRY CHRISTMAS',
       subtitle: cfg.treeSubtitle || '',
       onStats(s) {
+        $('#stStage').textContent = s.stage;
         $('#stRot').textContent = s.rotation.toFixed(2) + '°';
         $('#stLights').textContent = s.lights;
         $('#stLetters').textContent = s.letters.toLocaleString('en-US');
@@ -746,6 +747,8 @@ requestAnimationFrame(loop);`;
     await typeWish();
     const as = cfg.autoScroll || {};
     await wait(as.delay != null ? as.delay : 2500);
+    // chờ cây dựng xong hoàn toàn rồi mới cuộn xuống
+    while (tree && tree.t < (window.AsciiTree.FINALE || 0)) await wait(250);
     let speed = as.speed || 42;
     const ga = Music.galleryAudio();
     if (as.matchSong !== false && ga && isFinite(ga.duration) && ga.duration > 30) {

@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Canh lời bài hát</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #05070d; --panel: #0b1120; --line: rgba(150,170,210,.16); --text: #e6e9f0; --dim: #7a849c;
+      --faint: #3b4459; --red: #ff4d5e; --gold: #ffc94a; --green: #4cd47a; --blue: #5b8cff;
+      --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--mono); background: var(--bg); color: var(--text); }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 18px 16px 120px; }
+    h1 { font-size: 20px; margin: 0 0 6px; color: var(--gold); }
+    p.help { margin: 0 0 16px; color: var(--dim); font-size: 13px; line-height: 1.7; }
+    .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+    button, select, input { font: inherit; color: inherit; }
+    button { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 9px 13px; cursor: pointer; font-size: 13px; }
+    button:hover { border-color: rgba(255,201,74,.45); }
+    button.primary { background: #2a2108; border-color: rgba(255,201,74,.5); color: var(--gold); }
+    .time { font-variant-numeric: tabular-nums; color: var(--gold); font-size: 14px; min-width: 9ch; }
+    label.lat { font-size: 12px; color: var(--dim); display: flex; gap: 6px; align-items: center; }
+    label.lat input { width: 5em; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; }
+    .tap {
+      width: 100%; padding: 26px 10px; margin: 6px 0 16px; border-radius: 14px; font-size: 18px; font-weight: 700;
+      background: linear-gradient(180deg, #3a0f17, #250910); border: 1px solid rgba(255,77,94,.55); color: #ffd9dd;
+      touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    }
+    .tap:active { transform: scale(.99); background: #4a1520; }
+    .tap small { display: block; font-weight: 400; font-size: 12px; color: #ffb3bc; margin-top: 6px; }
+    ol { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+    li { display: grid; grid-template-columns: 9ch 1fr auto; gap: 10px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 14px; }
+    li:first-child { border-top: 0; }
+    li .t { color: var(--dim); font-variant-numeric: tabular-nums; font-size: 12px; }
+    li.done .t { color: var(--green); }
+    li.next { background: rgba(255,201,74,.10); box-shadow: inset 3px 0 0 var(--gold); }
+    li.next .txt { color: var(--gold); font-weight: 700; }
+    li.playing .txt { color: #fff; text-shadow: 0 0 12px rgba(255,201,74,.6); }
+    li .nudge { display: flex; gap: 4px; }
+    li .nudge button { padding: 4px 7px; font-size: 11px; }
+    textarea { width: 100%; min-height: 180px; margin-top: 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 12px/1.5 var(--mono); }
+    .note { font-size: 12px; color: var(--dim); margin-top: 8px; line-height: 1.6; }
+    .ok { color: var(--green); }
+    @media (max-width: 560px) { li { grid-template-columns: 8ch 1fr; } li .nudge { grid-column: 1 / -1; justify-content: flex-end; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>♪ Canh lời bài hát cho khớp nhạc</h1>
+    <p class="help">
+      1. Bấm <b>Bắt đầu gõ nhịp</b> — nhạc phát từ đầu.<br>
+      2. Mỗi khi một câu <b>bắt đầu được hát</b>, chạm nút đỏ (hoặc phím <b>Space</b>). Chạm lỡ thì bấm <b>Lùi 1 câu</b> (phím <b>Backspace</b>).<br>
+      3. Xong thì bấm <b>Nghe thử</b> để kiểm tra; câu nào lệch thì chỉnh bằng nút −/+ (0,1 giây).<br>
+      4. Bấm <b>Sao chép LRC</b> và dán đè lên mục <code>lrc</code> trong <code>js/config.js</code> (hoặc gửi cho Claude).
+    </p>
+
+    <div class="bar">
+      <button class="primary" id="btnRec">● Bắt đầu gõ nhịp</button>
+      <button id="btnPlay">▶ Nghe thử</button>
+      <button id="btnStop">■ Dừng</button>
+      <span class="time" id="clock">00:00.00</span>
+      <label class="lat">bù trễ phản xạ (giây) <input id="lat" type="number" step="0.05" value="0.15"></label>
+    </div>
+
+    <button class="tap" id="tap">CHẠM KHI CÂU BẮT ĐẦU<small id="tapHint">—</small></button>
+
+    <ol id="list"></ol>
+
+    <div class="bar" style="margin-top:14px">
+      <button class="primary" id="btnCopy">⧉ Sao chép LRC</button>
+      <span class="note" id="copyMsg"></span>
+    </div>
+    <textarea id="out" spellcheck="false" aria-label="Kết quả LRC"></textarea>
+    <p class="note">Mẹo: dùng tai nghe có dây sẽ chính xác hơn Bluetooth (Bluetooth trễ ~0,2 giây — khi đó tăng ô "bù trễ" lên khoảng 0.3).</p>
+  </div>
+
+  <script src="../js/config.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    const cfg = window.CARD_CONFIG || {};
+    const $ = s => document.querySelector(s);
+
+    /* ---- lấy danh sách câu: từ lrc (giữ mốc cũ làm điểm xuất phát) hoặc từ lyrics ---- */
+    function parseLRC(text) {
+      const out = [];
+      String(text || '').split(/\r?\n/).forEach(raw => {
+        if (/^\s*\[offset:/i.test(raw)) return;
+        const re = /\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]/g;
+        const ts = []; let m, last = -1;
+        while ((m = re.exec(raw))) { ts.push(Number(m[1]) * 60 + parseFloat(m[2].replace(':', '.'))); last = re.lastIndex; }
+        if (!ts.length) return;
+        const txt = raw.slice(last).trim();
+        ts.forEach(t => out.push({ t, text: txt }));
+      });
+      return out.sort((a, b) => a.t - b.t);
+    }
+    let lines = parseLRC(cfg.lrc).filter(l => l.text);
+    if (!lines.length) lines = (cfg.lyrics || []).filter(Boolean).map(text => ({ t: null, text }));
+    lines.forEach(l => (l.done = false));
+
+    const src = (cfg.music && cfg.music.gallery) || 'assets/music/santa-tell-me.mp3';
+    const audio = new Audio('../' + src);
+    audio.preload = 'auto';
+
+    const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${(s % 60).toFixed(2).padStart(5, '0')}`;
+    let mode = 'idle'; // idle | rec | play
+    let idx = 0;
+
+    /* ---- danh sách ---- */
+    const list = $('#list');
+    function render() {
+      list.innerHTML = '';
+      lines.forEach((l, i) => {
+        const li = document.createElement('li');
+        li.className = (l.done ? 'done ' : '') + (mode === 'rec' && i === idx ? 'next' : '');
+        li.innerHTML = `<span class="t">${l.t == null ? '--:--.--' : fmt(l.t)}</span><span class="txt"></span>
+          <span class="nudge"><button data-a="seek">▶</button><button data-a="-">−0.1</button><button data-a="+">+0.1</button></span>`;
+        li.querySelector('.txt').textContent = l.text;
+        li.dataset.i = i;
+        list.appendChild(li);
+      });
+      $('#tapHint').textContent = mode === 'rec' ? (lines[idx] ? `câu ${idx + 1}/${lines.length}: ${lines[idx].text}` : 'đã xong tất cả các câu ✓') : 'bấm “Bắt đầu gõ nhịp” trước';
+      writeOut();
+    }
+    list.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      const i = Number(b.closest('li').dataset.i); const l = lines[i];
+      if (b.dataset.a === 'seek') { if (l.t != null) { mode = 'play'; audio.currentTime = Math.max(0, l.t - 2); audio.play(); } return; }
+      if (l.t == null) return;
+      l.t = Math.max(0, +(l.t + (b.dataset.a === '+' ? 0.1 : -0.1)).toFixed(2));
+      render();
+    });
+
+    function writeOut() {
+      const rows = ['[offset:0]'];
+      lines.forEach(l => { if (l.t != null) rows.push(`[${fmt(l.t)}] ${l.text}`); });
+      $('#out').value = rows.join('\n');
+    }
+
+    /* ---- gõ nhịp ---- */
+    function stamp() {
+      if (mode !== 'rec' || idx >= lines.length) return;
+      const lat = parseFloat($('#lat').value) || 0;
+      lines[idx].t = Math.max(0, +(audio.currentTime - lat).toFixed(2));
+      lines[idx].done = true;
+      idx++;
+      render();
+      const el = list.children[Math.min(idx, lines.length - 1)];
+      if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    function undo() {
+      if (mode !== 'rec' || idx === 0) return;
+      idx--; lines[idx].done = false; render();
+    }
+    $('#tap').addEventListener('pointerdown', e => { e.preventDefault(); stamp(); });
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); stamp(); }
+      if (e.code === 'Backspace') { e.preventDefault(); undo(); }
+    });
+    const btnUndo = document.createElement('button'); btnUndo.textContent = '↶ Lùi 1 câu'; btnUndo.onclick = undo;
+    $('#btnStop').after(btnUndo);
+
+    $('#btnRec').onclick = () => { mode = 'rec'; idx = 0; lines.forEach(l => (l.done = false)); audio.currentTime = 0; audio.play(); render(); window.scrollTo({ top: 0 }); };
+    $('#btnPlay').onclick = () => { mode = 'play'; audio.currentTime = 0; audio.play(); render(); };
+    $('#btnStop').onclick = () => { audio.pause(); mode = 'idle'; render(); };
+    audio.addEventListener('ended', () => { mode = 'idle'; render(); });
+    audio.addEventListener('error', () => { $('#tapHint').textContent = `không mở được file nhạc ${src}`; });
+
+    /* ---- đồng hồ + tô sáng câu đang phát khi nghe thử ---- */
+    let lastPlaying = -1;
+    (function tick() {
+      requestAnimationFrame(tick);
+      $('#clock').textContent = fmt(audio.currentTime || 0);
+      if (mode !== 'play') { if (lastPlaying >= 0 && list.children[lastPlaying]) list.children[lastPlaying].classList.remove('playing'); lastPlaying = -1; return; }
+      let p = -1;
+      lines.forEach((l, i) => { if (l.t != null && l.t <= audio.currentTime) p = i; });
+      if (p !== lastPlaying) {
+        if (lastPlaying >= 0 && list.children[lastPlaying]) list.children[lastPlaying].classList.remove('playing');
+        if (p >= 0 && list.children[p]) { list.children[p].classList.add('playing'); list.children[p].scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+        lastPlaying = p;
+      }
+    })();
+
+    $('#btnCopy').onclick = async () => {
+      writeOut();
+      try { await navigator.clipboard.writeText($('#out').value); $('#copyMsg').innerHTML = '<span class="ok">đã sao chép ✓</span>'; }
+      catch (e) { $('#out').select(); $('#copyMsg').textContent = 'hãy bôi đen ô bên dưới rồi sao chép'; }
+    };
+
+    render();
+  })();
+  </script>
+</body>
+</html>
