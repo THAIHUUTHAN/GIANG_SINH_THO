@@ -20,7 +20,6 @@
   <!-- ================= 1. MÀN HÌNH HỘP QUÀ ================= -->
   <section id="intro" class="intro">
     <div class="intro-inner">
-      <p class="intro-cmd"><span class="p-user">cun@christmas</span>:<span class="p-path">~</span>$ ./mo_qua.sh</p>
 
       <button id="gift" class="gift" type="button" aria-label="Mở hộp quà">
         <span class="gift-glow" aria-hidden="true"></span>
@@ -40,18 +39,9 @@
       <div class="win win-tree">
         <div class="win-bar">
           <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-          <span class="win-title">christmas_tree.js</span>
-          <span class="win-status">running · <b id="fps">30</b> fps</span>
         </div>
         <div class="tree-stage" id="treeStage">
           <canvas id="tree" aria-label="Cây thông Giáng sinh vẽ bằng ký tự"></canvas>
-          <div class="tree-info" aria-hidden="true">
-            <div class="ti-name">cún ♥ thỏ</div>
-            <div>stage <b id="stStage">init</b></div>
-            <div>rotation <b id="stRot">0.00°</b></div>
-            <div>lights · <b id="stLights">0</b></div>
-            <div>letters <b id="stLetters">0</b></div>
-          </div>
         </div>
         <div class="code-pane" id="codePane" aria-hidden="true"><pre id="code"></pre></div>
       </div>
@@ -60,13 +50,10 @@
       <div class="win win-wish">
         <div class="win-bar">
           <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-          <span class="win-title">loi_chuc.txt</span>
-          <span class="win-status dim" id="wishStatus">typing…</span>
         </div>
         <div class="wish-body" id="wishBody">
-          <p class="wish-cmd">$ cat loi_chuc.txt</p>
           <p class="wish-text"><span id="wishText"></span><span class="cursor" id="wishCursor" aria-hidden="true"></span></p>
-          <p class="wish-eof" id="wishEof">── EOF ──<br><span class="scroll-hint">▼ kỷ niệm của chúng mình ở bên dưới</span></p>
+          <p class="wish-eof" id="wishEof"><span class="scroll-hint">▼ kỷ niệm của chúng mình ở bên dưới</span></p>
         </div>
       </div>
     </section>

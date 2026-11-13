@@ -272,13 +272,6 @@
     tree = new window.AsciiTree($('#tree'), {
       message: cfg.treeMessage || 'MERRY CHRISTMAS',
       subtitle: cfg.treeSubtitle || '',
-      onStats(s) {
-        $('#stStage').textContent = s.stage;
-        $('#stRot').textContent = s.rotation.toFixed(2) + '°';
-        $('#stLights').textContent = s.lights;
-        $('#stLetters').textContent = s.letters.toLocaleString('en-US');
-        $('#fps').textContent = s.fps;
-      },
     });
     tree.start();
     // chỉ chạy khi nhìn thấy để tiết kiệm pin
@@ -370,16 +363,11 @@ requestAnimationFrame(loop);`;
 
   async function typeWish() {
     const body = $('#wishBody');
-    const status = $('#wishStatus');
-    status.textContent = 'typing…';
     await typeInto($('#wishText'), cfg.wish || '', cfg.typingSpeed || 60, {
       onChar() {
         body.scrollTop = body.scrollHeight;
       },
     });
-    status.textContent = 'saved ✓';
-    status.classList.remove('dim');
-    status.classList.add('done');
     $('#wishEof').classList.add('show');
     await wait(400);
     body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
@@ -403,7 +391,6 @@ requestAnimationFrame(loop);`;
     photos.forEach((ph, i) => {
       const side = i % 2 === 0 ? 'left' : 'right';
       const n = String(i + 1).padStart(2, '0');
-      const fileName = (ph.video || ph.src || '').split('/').pop() || `anh_${n}.jpg`;
       let lines = lyrics.slice(i * per, (i + 1) * per);
       if (i === photos.length - 1) lines = lyrics.slice(i * per); // dòng thừa dồn vào ảnh cuối
       if (!lyrics.length) lines = ['Santa tell me…', '(lời bài hát sẽ chạy ở đây)'];
@@ -414,7 +401,6 @@ requestAnimationFrame(loop);`;
         <figure class="frame">
           <div class="win-bar">
             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-            <span class="win-title">${esc(fileName)}</span>
             <span class="win-status dim">${esc(ph.date || '')}</span>
           </div>
           <div class="frame-img"></div>
