@@ -438,7 +438,6 @@ button { font: inherit; color: inherit; }
 .ph b { color: var(--dim); font-weight: 400; font-size: 15px; }
 
 .lyrics { padding: 0 10px; }
-.lyrics .lbl { margin: 0 0 16px; font-size: 12px; color: var(--faint); }
 .lyrics p.ly {
   margin: 0 0 0.6em;
   min-height: 1.5em;
@@ -460,7 +459,6 @@ button { font: inherit; color: inherit; }
 }
 .karaoke.show { opacity: 1; transform: none; }
 .karaoke p { margin: 0; }
-.k-time { font-size: 12px; color: var(--faint); margin-bottom: 14px !important; font-variant-numeric: tabular-nums; }
 .k-prev, .k-next {
   min-height: 1.5em;
   font-size: clamp(13px, 1.15vw, 16px);
@@ -478,7 +476,7 @@ button { font: inherit; color: inherit; }
 }
 .k-sung { color: var(--gold); text-shadow: 0 0 16px rgba(255, 201, 74, 0.55); }
 .k-rest { color: rgba(230, 233, 240, 0.32); }
-.karaoke.intro .k-cur { color: var(--dim); font-weight: 400; }
+.karaoke.k-wait .k-cur { color: var(--dim); font-weight: 400; }
 
 /* --- kết thúc --- */
 .ending {

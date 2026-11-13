@@ -407,7 +407,6 @@ requestAnimationFrame(loop);`;
       let lines = lyrics.slice(i * per, (i + 1) * per);
       if (i === photos.length - 1) lines = lyrics.slice(i * per); // dòng thừa dồn vào ảnh cuối
       if (!lyrics.length) lines = ['Santa tell me…', '(lời bài hát sẽ chạy ở đây)'];
-      const hashStr = (0x1f3a9c + i * 0x2b7e15).toString(16).slice(0, 7);
 
       const art = document.createElement('article');
       art.className = `memory ${side}`;
@@ -416,15 +415,13 @@ requestAnimationFrame(loop);`;
           <div class="win-bar">
             <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
             <span class="win-title">${esc(fileName)}</span>
-            <span class="win-status dim">${esc(ph.date || 'commit ' + hashStr)}</span>
+            <span class="win-status dim">${esc(ph.date || '')}</span>
           </div>
           <div class="frame-img"></div>
           ${ph.caption ? `<figcaption>${esc(ph.caption)}</figcaption>` : ''}
         </figure>
         <div class="node" aria-hidden="true">*</div>
-        <div class="lyrics">
-          <p class="lbl">♪ santa_tell_me.lrc · ${n}</p>
-        </div>`;
+        <div class="lyrics"></div>`;
       const imgHost = art.querySelector('.frame-img');
       const placeholder = () => {
         imgHost.innerHTML = `<div class="ph"><b>[ ảnh kỷ niệm #${n} ]</b><span>${esc(ph.src || 'assets/photos/' + n + '.jpg')}</span></div>`;
@@ -523,19 +520,12 @@ requestAnimationFrame(loop);`;
     return out;
   }
 
-  const fmtTime = s => {
-    const mm = String(Math.floor(s / 60)).padStart(2, '0');
-    const ss = (s % 60).toFixed(2).padStart(5, '0');
-    return `${mm}:${ss}`;
-  };
-
   function startKaraoke(lines) {
     const memories = Array.from(document.querySelectorAll('.memory'));
     if (!memories.length) return;
     const k = document.createElement('div');
     k.className = 'karaoke';
-    k.innerHTML = '<p class="k-time"></p><p class="k-prev"></p><p class="k-cur"><span class="k-sung"></span><span class="k-rest"></span></p><p class="k-next"></p>';
-    const elTime = k.querySelector('.k-time');
+    k.innerHTML = '<p class="k-prev"></p><p class="k-cur"><span class="k-sung"></span><span class="k-rest"></span></p><p class="k-next"></p>';
     const elPrev = k.querySelector('.k-prev');
     const elSung = k.querySelector('.k-sung');
     const elRest = k.querySelector('.k-rest');
@@ -544,7 +534,6 @@ requestAnimationFrame(loop);`;
     let box = null;
     let lastIdx = -2;
     let lastCut = -1;
-    let lastTimeTxt = '';
 
     // ô lời gần giữa màn hình nhất
     function activeBox() {
@@ -584,8 +573,6 @@ requestAnimationFrame(loop);`;
       if (!box) return;
 
       const t = audio.currentTime;
-      const timeTxt = `[${fmtTime(t)}] ${audio.paused ? '❚❚' : '▶'}`;
-      if (timeTxt !== lastTimeTxt) elTime.textContent = lastTimeTxt = timeTxt;
 
       let idx = -1;
       for (let i = 0; i < lines.length && lines[i].t <= t; i++) idx = i;
@@ -597,7 +584,7 @@ requestAnimationFrame(loop);`;
         lastCut = -1;
         elPrev.textContent = idx > 0 ? lines[idx - 1].text || NOTE : '';
         elNext.textContent = next ? next.text || NOTE : '';
-        k.classList.toggle('intro', idx < 0);
+        k.classList.toggle('k-wait', idx < 0);
       }
 
       const text = cur ? cur.text || NOTE : '♪ …';
@@ -638,26 +625,55 @@ requestAnimationFrame(loop);`;
    * ------------------------------------------------------------- */
   const AutoScroll = (function () {
     let active = false;
-    let paused = false;
     let pos = 0;
     let last = 0;
     let speed = 40;
-    let idle = 0;
+    let expected = -1; // vị trí do chính trang tự cuộn tới
+    let userUntil = 0; // nhường cho người xem đến thời điểm này
+    let touching = false;
     const maxY = () => Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const yieldToUser = ms => (userUntil = Math.max(userUntil, performance.now() + ms));
+    const userBusy = () => touching || performance.now() < userUntil;
+
+    // người xem lăn chuột / vuốt / kéo thanh cuộn: tạm nhường, rồi cuộn tiếp từ vị trí mới
+    window.addEventListener('wheel', () => yieldToUser(450), { passive: true });
+    window.addEventListener('touchstart', () => (touching = true), { passive: true });
+    const touchEnd = () => {
+      touching = false;
+      yieldToUser(600);
+    };
+    window.addEventListener('touchend', touchEnd, { passive: true });
+    window.addEventListener('touchcancel', touchEnd, { passive: true });
+    window.addEventListener('keydown', e => {
+      if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Space', 'Home', 'End'].includes(e.code)) yieldToUser(600);
+    });
+    window.addEventListener(
+      'scroll',
+      () => {
+        // cuộn không phải do trang tự làm (vd. quán tính khi vuốt, kéo thanh cuộn) → nhường thêm chút
+        if (expected < 0 || Math.abs(window.scrollY - expected) > 3) yieldToUser(300);
+      },
+      { passive: true }
+    );
+
+    function go(y) {
+      expected = y;
+      window.scrollTo(0, y);
+    }
 
     function tick(now) {
       if (!active) return;
       requestAnimationFrame(tick);
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      if (paused) return;
-      pos += speed * dt;
-      if (pos >= maxY()) {
-        window.scrollTo(0, maxY());
-        active = false;
+      if (userBusy()) {
+        pos = window.scrollY;
+        expected = -1;
         return;
       }
-      window.scrollTo(0, Math.round(pos));
+      pos = Math.min(maxY(), pos + speed * dt);
+      const y = Math.round(pos);
+      if (Math.abs(y - window.scrollY) >= 1) go(y);
     }
 
     function ease(target, ms) {
@@ -667,32 +683,19 @@ requestAnimationFrame(loop);`;
         if (dist <= 0) return resolve();
         const t0 = performance.now();
         (function f(now) {
-          if (paused) return resolve();
-          const k = Math.min(1, (now - t0) / ms);
+          if (!active || userBusy()) return resolve();
+          const k = Math.max(0, Math.min(1, (now - t0) / ms));
           const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-          window.scrollTo(0, Math.round(from + dist * e));
+          go(Math.round(from + dist * e));
           if (k < 1) requestAnimationFrame(f);
           else resolve();
         })(t0);
       });
     }
 
-    function interact() {
-      if (!active) return;
-      paused = true;
-      clearTimeout(idle);
-      idle = setTimeout(() => {
-        pos = window.scrollY;
-        last = performance.now();
-        paused = false;
-      }, 6000);
-    }
-    ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(ev => window.addEventListener(ev, interact, { passive: true }));
-
     async function run(target, spd) {
       speed = spd;
       active = true;
-      paused = false;
       await ease(target, 2600);
       if (!active) return;
       pos = window.scrollY;
@@ -701,7 +704,7 @@ requestAnimationFrame(loop);`;
     }
     function stop() {
       active = false;
-      clearTimeout(idle);
+      expected = -1;
     }
     return { run, stop };
   })();
