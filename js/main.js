@@ -120,90 +120,119 @@
   const Music = (function () {
     const m = cfg.music || {};
     const vol = typeof m.volume === 'number' ? m.volume : 0.8;
-    const make = src => {
-      if (!src) return null;
-      const a = new Audio();
-      a.loop = true;
-      a.preload = 'auto';
-      a.volume = vol;
-      a.ok = true;
-      a.addEventListener('error', () => (a.ok = false));
-      a.src = src;
-      return a;
-    };
-    const main = make(m.main);
-    const gal = make(m.gallery);
+    const SRC = { main: m.main || '', gallery: m.gallery || '' };
+    // MỘT trình phát duy nhất: iPhone chỉ cho phát âm thanh trên trình phát đã được "mở khoá"
+    // bằng một lần chạm. Khi chuyển bài, chỉ đổi file trên chính trình phát này.
+    const el = new Audio();
+    el.loop = true;
+    el.preload = 'auto';
+    el.setAttribute('playsinline', '');
+    try { el.volume = vol; } catch (e) { /* iOS: âm lượng do nút cứng điều khiển */ }
+    const pos = { main: 0, gallery: 0 }; // nhớ đoạn đang nghe dở của mỗi bài
+    const failed = { main: !SRC.main, gallery: !SRC.gallery };
+    const failCbs = [];
     const btn = $('#musicBtn');
-    let current = null;
+    let track = null; // bài đang phát
+    let want = null; // bài cần phát theo vị trí cuộn
     let muted = false;
-    let fadeId = 0;
+    let busy = false;
+    let started = false;
 
-    function start() {
-      // "mở khoá" bài thứ hai trong cùng thao tác chạm (yêu cầu của iOS/Safari)
-      if (gal) {
-        gal.muted = true;
-        const pr = gal.play();
-        if (pr)
-          pr.then(() => {
-            if (current !== gal) {
-              gal.pause();
-              gal.currentTime = 0;
-            }
-            gal.muted = muted;
-          }).catch(() => (gal.muted = muted));
-      }
-      if (main) {
-        current = main;
-        main.play().catch(() => {
-          main.ok = false;
-          toast(`♪ Chưa phát được nhạc — hãy thêm file "${m.main}"`, 7000);
-        });
-      }
-      btn.hidden = !main && !gal;
+    // đọc trước thời lượng bài phần ảnh (chỉ đọc thông tin, không phát)
+    let galDur = NaN;
+    if (SRC.gallery) {
+      const probe = new Audio();
+      probe.preload = 'metadata';
+      probe.onloadedmetadata = () => (galDur = probe.duration);
+      probe.src = SRC.gallery;
     }
 
-    function switchTo(which) {
-      const next = which === 'gallery' ? gal : main;
-      if (!next || next === current || next.ok === false || !current) return;
-      const prev = current;
-      current = next;
-      const id = ++fadeId;
-      next.volume = 0;
-      next.muted = muted;
-      next
-        .play()
-        .then(() => {
-          const t0 = performance.now();
-          const D = 1800;
-          (function fade(now) {
-            if (id !== fadeId) return;
-            const k = Math.max(0, Math.min(1, (now - t0) / D));
-            next.volume = vol * k;
-            prev.volume = vol * (1 - k);
-            if (k < 1) requestAnimationFrame(fade);
-            else {
-              prev.pause();
-              prev.volume = vol;
-            }
-          })(t0);
-        })
-        .catch(() => {
-          next.ok = false;
-          next.volume = vol;
-          current = prev;
-        });
+    const setVol = v => {
+      try { el.volume = Math.max(0, Math.min(1, v)); } catch (e) { /* bỏ qua */ }
+    };
+    function fade(to, ms) {
+      return new Promise(res => {
+        const from = el.volume;
+        const t0 = performance.now();
+        (function f(now) {
+          const k = Math.max(0, Math.min(1, (now - t0) / ms));
+          setVol(from + (to - from) * k);
+          if (k < 1) requestAnimationFrame(f);
+          else res();
+        })(t0);
+      });
+    }
+
+    function setTrack(name) {
+      if (track) pos[track] = el.currentTime || 0;
+      track = name;
+      const seekTo = pos[name];
+      if (seekTo) el.addEventListener('loadedmetadata', () => { try { el.currentTime = seekTo; } catch (e) { /* bỏ qua */ } }, { once: true });
+      el.src = SRC[name];
+      el.muted = muted;
+      return el.play();
+    }
+
+    function start() {
+      started = true;
+      btn.hidden = failed.main && failed.gallery;
+      const first = !failed.main ? 'main' : !failed.gallery ? 'gallery' : null;
+      if (!first) return;
+      want = first;
+      // gọi play() ngay trong lúc chạm để iPhone "mở khoá" trình phát
+      setTrack(first).catch(() => {
+        failed[first] = true;
+        toast(`♪ Chưa phát được nhạc — hãy kiểm tra file "${SRC[first]}"`, 7000);
+        if (first === 'gallery') failCbs.forEach(f => f());
+      });
+    }
+
+    async function process() {
+      if (busy || !started) return;
+      busy = true;
+      while (want && want !== track && !failed[want]) {
+        const name = want;
+        if (!el.paused) await fade(0, 900);
+        try {
+          setVol(0);
+          await setTrack(name);
+          await fade(vol, 1200);
+        } catch (e) {
+          failed[name] = true;
+          if (name === 'gallery') failCbs.forEach(f => f());
+          const back = name === 'gallery' ? 'main' : 'gallery';
+          if (!failed[back]) {
+            try { await setTrack(back); } catch (e2) { /* bỏ qua */ }
+          }
+          setVol(vol);
+        }
+      }
+      busy = false;
+    }
+
+    function switchTo(name) {
+      want = name;
+      process();
     }
 
     function toggle() {
       muted = !muted;
-      [main, gal].forEach(a => a && (a.muted = muted));
-      if (!muted && current && current.paused) current.play().catch(() => {});
+      el.muted = muted;
+      if (!muted && el.paused && track) el.play().catch(() => {});
       btn.textContent = muted ? '♪ nhạc: tắt' : '♪ nhạc: bật';
       btn.classList.toggle('off', muted);
     }
     btn.addEventListener('click', toggle);
 
-    return { start, switchTo, galleryAudio: () => (gal && gal.ok !== false ? gal : null) };
+    return {
+      start,
+      switchTo,
+      // thời điểm đang phát của bài phần ảnh (null nếu bài đó chưa phát)
+      galleryTime: () => (track === 'gallery' && !failed.gallery ? el.currentTime : null),
+      galleryDuration: () => (isFinite(galDur) ? galDur : track === 'gallery' && isFinite(el.duration) ? el.duration : NaN),
+      galleryFailed: () => failed.gallery,
+      onGalleryFail: f => failCbs.push(f),
+    };
   })();
 
   /* ---------------------------------------------------------------
@@ -333,7 +362,8 @@ requestAnimationFrame(loop);`;
     const lrcLines = parseLRC(cfg.lrc);
     synced = lrcLines.length > 0 && !!(cfg.music && cfg.music.gallery);
     // có LRC nhưng không có nhạc phần ảnh → dùng lời trong LRC theo kiểu gõ chữ
-    const lyrics = lrcLines.length && !synced ? lrcLines.map(l => l.text).filter(Boolean) : (cfg.lyrics || []).filter(l => l != null);
+    // lời dạng gõ chữ (dùng khi không có LRC, hoặc dự phòng khi nhạc phần ảnh không phát được)
+    const lyrics = lrcLines.length ? lrcLines.map(l => l.text).filter(Boolean) : (cfg.lyrics || []).filter(l => l != null);
     const host = $('#memories');
     if (!photos.length) {
       $('#gallery').querySelector('.gallery-head').insertAdjacentHTML('beforeend', '<p class="sub">(chưa có ảnh — thêm ảnh trong js/config.js)</p>');
@@ -417,7 +447,16 @@ requestAnimationFrame(loop);`;
     }, { threshold: 0.25 });
     host.querySelectorAll('.memory').forEach(el => el._video && vio.observe(el));
 
-    if (synced) startKaraoke(lrcLines);
+    if (synced) {
+      startKaraoke(lrcLines);
+      const fallback = () => {
+        if (!synced) return;
+        synced = false; // nhạc phần ảnh không phát được → chuyển sang lời gõ chữ
+        document.querySelectorAll('.memory.in').forEach(typeLyrics);
+      };
+      if (Music.galleryFailed()) fallback();
+      else Music.onGalleryFail(fallback);
+    }
 
     const end = cfg.ending || {};
     $('#endTitle').textContent = end.title || `Merry Christmas, ${TO}`;
@@ -501,16 +540,18 @@ requestAnimationFrame(loop);`;
 
     let frame = 0;
     (function tick() {
+      if (!synced) {
+        k.remove();
+        return;
+      }
       requestAnimationFrame(tick);
       if (++frame % 2) return; // ~30 lần/giây là đủ khớp
-      const audio = Music.galleryAudio();
+      const t = Music.galleryTime();
       const g = $('#gallery').getBoundingClientRect();
-      if (!audio || g.bottom < 0 || g.top > window.innerHeight) return;
+      if (t == null || g.bottom < 0 || g.top > window.innerHeight) return;
       const b = activeBox();
       if (b) moveTo(b);
       if (!box) return;
-
-      const t = audio.currentTime;
 
       let idx = -1;
       for (let i = 0; i < lines.length && lines[i].t <= t; i++) idx = i;
@@ -691,11 +732,11 @@ requestAnimationFrame(loop);`;
     // chờ cây dựng xong hoàn toàn rồi mới cuộn xuống
     while (tree && tree.t < (window.AsciiTree.FINALE || 0)) await wait(250);
     let speed = as.speed || 42;
-    const ga = Music.galleryAudio();
-    if (as.matchSong !== false && ga && isFinite(ga.duration) && ga.duration > 30) {
+    const dur = Music.galleryDuration();
+    if (as.matchSong !== false && isFinite(dur) && dur > 30) {
       // cuộn hết phần ảnh vừa đúng lúc bài hát kết thúc
       const dist = document.documentElement.scrollHeight - window.innerHeight - $('#gallery').offsetTop;
-      speed = Math.max(18, Math.min(90, dist / (ga.duration - 4)));
+      speed = Math.max(18, Math.min(90, dist / (dur - 4)));
     }
     AutoScroll.run($('#gallery').offsetTop, speed);
   }
