@@ -86,7 +86,122 @@ Merry Christmas! ♥`,
    * Lời chạy sớm/muộn so với nhạc? Thêm dòng [offset:+300] (lời sớm hơn 0.3 giây) hoặc [offset:-300]. */
   lrc: ``,
 
-  /* ---------- Kết thúc trang ---------- */
+Santa tell me if you're really there
+
+Don't make me fall in love again
+
+If he won't be here next year
+
+Santa tell me if he really cares
+
+Cause I can give it all away
+
+if he won't be here next year
+
+Feeling Christmas all around
+
+And I'm trying to play it cool
+
+But it's hard to focus when
+
+I see him walking 'cross the room
+
+Let it snow is blasting now
+
+But I won't get it in the mood
+
+I'm avoiding every mistletoe
+
+until I know it's true love
+
+That he thinks of
+
+So next Christmas I'm not all alone boy
+
+Santa tell me if you're really there
+
+Don't make me fall in love again
+
+If he won't be here next year
+
+Santa tell me if he really cares
+
+Cause I can't give it all away
+
+if he won't be here next year
+
+I've been down this road before
+
+Fell in love on Christmas night
+
+But I knew you say I woke up
+
+and you wasn't by my side
+
+Now I need someone to hold
+
+Be my fire in the cold
+
+But it's hard to tell if this is
+
+just a fling or if it's true love
+
+That he thinks of
+
+So next Christmas I'm not all alone boy
+
+Santa tell me if you're really there
+
+Don't make me fall in love again
+
+If he won't be here next year
+
+Santa tell me if he really cares
+
+Cause I can't give it all away
+
+if he won't be here next year
+
+Oh I wanna have him beside me like
+
+On the 25th by the fireplace ooh
+
+But I don't want no broken heart
+
+This year I got to be smart
+
+Oh baby
+
+Santa tell me
+
+Santa tell me
+
+Santa tell me if you're really there
+
+Santa tell me
+
+Don't make me fall in love again
+
+If he won't be here next year
+
+Santa tell me if he really cares
+
+Cause I can't give it all away
+
+if he won't be here next year
+
+Santa tell me if you're really there
+
+Don't make me fall in love again
+
+If he won't be here next year
+
+Santa tell me if he really cares
+
+Cause I can give it all away
+
+if he won't be here next year
+
   ending: {
     title: "Merry Christmas, Thỏ iu",
     message: "Giáng sinh này và thật nhiều Giáng sinh nữa, mình vẫn ở cạnh nhau nhé.",
