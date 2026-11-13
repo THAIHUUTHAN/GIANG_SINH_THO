@@ -402,7 +402,8 @@ button { font: inherit; color: inherit; }
 .memory.right.in .frame { transform: rotate(1deg); }
 .frame .win-bar { height: 30px; font-size: 11px; }
 .frame-img { position: relative; background: #070a13; }
-.frame img {
+.frame img,
+.frame video {
   display: block;
   width: 100%;
   height: auto;

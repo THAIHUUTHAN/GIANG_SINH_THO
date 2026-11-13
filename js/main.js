@@ -399,7 +399,7 @@ requestAnimationFrame(loop);`;
     photos.forEach((ph, i) => {
       const side = i % 2 === 0 ? 'left' : 'right';
       const n = String(i + 1).padStart(2, '0');
-      const fileName = (ph.src || '').split('/').pop() || `anh_${n}.jpg`;
+      const fileName = (ph.video || ph.src || '').split('/').pop() || `anh_${n}.jpg`;
       let lines = lyrics.slice(i * per, (i + 1) * per);
       if (i === photos.length - 1) lines = lyrics.slice(i * per); // dòng thừa dồn vào ảnh cuối
       if (!lyrics.length) lines = ['Santa tell me…', '(lời bài hát sẽ chạy ở đây)'];
@@ -425,7 +425,23 @@ requestAnimationFrame(loop);`;
       const placeholder = () => {
         imgHost.innerHTML = `<div class="ph"><b>[ ảnh kỷ niệm #${n} ]</b><span>${esc(ph.src || 'assets/photos/' + n + '.jpg')}</span></div>`;
       };
-      if (ph.src) {
+      if (ph.video) {
+        // video: tự chạy, không tiếng (để không đè nhạc nền), lặp lại, phát ngay trong trang trên iPhone
+        const v = document.createElement('video');
+        v.src = ph.video;
+        if (ph.poster) v.poster = ph.poster;
+        v.muted = true;
+        v.defaultMuted = true;
+        v.loop = true;
+        v.playsInline = true;
+        v.setAttribute('playsinline', '');
+        v.setAttribute('muted', '');
+        v.preload = 'metadata';
+        v.setAttribute('aria-label', ph.caption || `Video kỷ niệm ${i + 1}`);
+        v.onerror = placeholder;
+        imgHost.appendChild(v);
+        art._video = v;
+      } else if (ph.src) {
         const img = new Image();
         img.alt = ph.caption || `Kỷ niệm ${i + 1}`;
         img.loading = 'lazy';
@@ -451,6 +467,16 @@ requestAnimationFrame(loop);`;
       { threshold: 0.3, rootMargin: '0px 0px -8% 0px' }
     );
     host.querySelectorAll('.memory').forEach(el => io.observe(el));
+
+    // video chỉ phát khi đang nhìn thấy
+    const vio = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        const v = e.target._video;
+        if (e.isIntersecting) v.play().catch(() => {});
+        else v.pause();
+      });
+    }, { threshold: 0.25 });
+    host.querySelectorAll('.memory').forEach(el => el._video && vio.observe(el));
 
     const end = cfg.ending || {};
     $('#endTitle').textContent = end.title || `Merry Christmas, ${TO}`;
