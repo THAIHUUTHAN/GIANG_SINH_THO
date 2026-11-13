@@ -39,8 +39,9 @@ Merry Christmas! ♥`,
 
   /* ---------- Tự động cuộn xuống phần ảnh ----------
    * delay : chờ bao lâu (ms) sau khi lời chúc hiện xong
-   * speed : tốc độ cuộn (pixel / giây) */
-  autoScroll: { delay: 2500, speed: 42 },
+   * speed : tốc độ cuộn (pixel / giây)
+   * matchSong : true = tự tính tốc độ để cuộn hết phần ảnh vừa đúng hết bài Santa Tell Me */
+  autoScroll: { delay: 2500, speed: 42, matchSong: true },
 
   /* ---------- Ảnh kỷ niệm ----------
    * Đặt ảnh vào assets/photos/ rồi khai báo ở đây, theo thứ tự từ trên xuống.
@@ -72,6 +73,18 @@ Merry Christmas! ♥`,
 
   /* Số dòng lời bài hát cho mỗi ảnh. 0 = tự chia đều. */
   linesPerPhoto: 0,
+
+  /* ---------- Lời chạy KHỚP NHẠC (karaoke) ----------
+   * Dán lời bài hát dạng LRC (mỗi dòng có mốc thời gian [phút:giây.phần trăm]) vào giữa hai dấu ` `
+   * Ví dụ:
+   *   lrc: `
+   *   [00:12.30] dòng thứ nhất
+   *   [00:15.80] dòng thứ hai
+   *   `,
+   * Khi có `lrc` và có file nhạc music.gallery, lời sẽ chạy đúng theo giây nhạc đang phát,
+   * hiện bên cạnh bức ảnh đang ở giữa màn hình (mục `lyrics` phía trên sẽ không dùng nữa).
+   * Lời chạy sớm/muộn so với nhạc? Thêm dòng [offset:+300] (lời sớm hơn 0.3 giây) hoặc [offset:-300]. */
+  lrc: ``,
 
   /* ---------- Kết thúc trang ---------- */
   ending: {

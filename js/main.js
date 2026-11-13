@@ -203,7 +203,7 @@
     }
     btn.addEventListener('click', toggle);
 
-    return { start, switchTo };
+    return { start, switchTo, galleryAudio: () => (gal && gal.ok !== false ? gal : null) };
   })();
 
   /* ---------------------------------------------------------------
@@ -389,7 +389,10 @@ requestAnimationFrame(loop);`;
    * ------------------------------------------------------------- */
   function buildGallery() {
     const photos = (cfg.photos || []).filter(Boolean);
-    const lyrics = (cfg.lyrics || []).filter(l => l != null);
+    const lrcLines = parseLRC(cfg.lrc);
+    synced = lrcLines.length > 0 && !!(cfg.music && cfg.music.gallery);
+    // có LRC nhưng không có nhạc phần ảnh → dùng lời trong LRC theo kiểu gõ chữ
+    const lyrics = lrcLines.length && !synced ? lrcLines.map(l => l.text).filter(Boolean) : (cfg.lyrics || []).filter(l => l != null);
     const host = $('#memories');
     if (!photos.length) {
       $('#gallery').querySelector('.gallery-head').insertAdjacentHTML('beforeend', '<p class="sub">(chưa có ảnh — thêm ảnh trong js/config.js)</p>');
@@ -461,7 +464,7 @@ requestAnimationFrame(loop);`;
           if (!e.isIntersecting) return;
           io.unobserve(e.target);
           e.target.classList.add('in');
-          typeLyrics(e.target);
+          if (!synced) typeLyrics(e.target);
         });
       },
       { threshold: 0.3, rootMargin: '0px 0px -8% 0px' }
@@ -478,10 +481,138 @@ requestAnimationFrame(loop);`;
     }, { threshold: 0.25 });
     host.querySelectorAll('.memory').forEach(el => el._video && vio.observe(el));
 
+    if (synced) startKaraoke(lrcLines);
+
     const end = cfg.ending || {};
     $('#endTitle').textContent = end.title || `Merry Christmas, ${TO}`;
     $('#endMsg').textContent = end.message || '';
     $('#endSign').textContent = end.sign || `— ${FROM}`;
+  }
+
+  /* ---------------------------------------------------------------
+   *  Lời chạy khớp nhạc (LRC / karaoke)
+   * ------------------------------------------------------------- */
+  let synced = false;
+
+  function parseLRC(text) {
+    const out = [];
+    let offset = 0;
+    String(text || '')
+      .split(/\r?\n/)
+      .forEach(raw => {
+        const off = raw.match(/^\s*\[offset:\s*([+-]?\d+)\s*\]/i);
+        if (off) {
+          offset = Number(off[1]) / 1000;
+          return;
+        }
+        const re = /\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]/g;
+        const times = [];
+        let m;
+        let last = -1;
+        while ((m = re.exec(raw))) {
+          times.push(Number(m[1]) * 60 + parseFloat(m[2].replace(':', '.')));
+          last = re.lastIndex;
+        }
+        if (!times.length) return;
+        const txt = raw.slice(last).trim();
+        times.forEach(t => out.push({ t, text: txt }));
+      });
+    out.sort((a, b) => a.t - b.t);
+    out.forEach(l => (l.t = Math.max(0, l.t - offset))); // offset dương = lời hiện sớm hơn
+    return out;
+  }
+
+  const fmtTime = s => {
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = (s % 60).toFixed(2).padStart(5, '0');
+    return `${mm}:${ss}`;
+  };
+
+  function startKaraoke(lines) {
+    const memories = Array.from(document.querySelectorAll('.memory'));
+    if (!memories.length) return;
+    const k = document.createElement('div');
+    k.className = 'karaoke';
+    k.innerHTML = '<p class="k-time"></p><p class="k-prev"></p><p class="k-cur"><span class="k-sung"></span><span class="k-rest"></span></p><p class="k-next"></p>';
+    const elTime = k.querySelector('.k-time');
+    const elPrev = k.querySelector('.k-prev');
+    const elSung = k.querySelector('.k-sung');
+    const elRest = k.querySelector('.k-rest');
+    const elNext = k.querySelector('.k-next');
+    const NOTE = '♪ ♪ ♪';
+    let box = null;
+    let lastIdx = -2;
+    let lastCut = -1;
+    let lastTimeTxt = '';
+
+    // ô lời gần giữa màn hình nhất
+    function activeBox() {
+      const mid = window.innerHeight / 2;
+      let best = null;
+      let bestD = Infinity;
+      for (const m of memories) {
+        const r = m.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > window.innerHeight) continue;
+        const d = Math.abs(r.top + r.height / 2 - mid);
+        if (d < bestD) {
+          bestD = d;
+          best = m;
+        }
+      }
+      return best && best.querySelector('.lyrics');
+    }
+
+    function moveTo(b) {
+      if (b === box) return;
+      box = b;
+      k.classList.remove('show');
+      b.appendChild(k);
+      void k.offsetWidth; // khởi động lại hiệu ứng hiện dần
+      k.classList.add('show');
+    }
+
+    let frame = 0;
+    (function tick() {
+      requestAnimationFrame(tick);
+      if (++frame % 2) return; // ~30 lần/giây là đủ khớp
+      const audio = Music.galleryAudio();
+      const g = $('#gallery').getBoundingClientRect();
+      if (!audio || g.bottom < 0 || g.top > window.innerHeight) return;
+      const b = activeBox();
+      if (b) moveTo(b);
+      if (!box) return;
+
+      const t = audio.currentTime;
+      const timeTxt = `[${fmtTime(t)}] ${audio.paused ? '❚❚' : '▶'}`;
+      if (timeTxt !== lastTimeTxt) elTime.textContent = lastTimeTxt = timeTxt;
+
+      let idx = -1;
+      for (let i = 0; i < lines.length && lines[i].t <= t; i++) idx = i;
+      const cur = lines[idx];
+      const next = lines[idx + 1];
+
+      if (idx !== lastIdx) {
+        lastIdx = idx;
+        lastCut = -1;
+        elPrev.textContent = idx > 0 ? lines[idx - 1].text || NOTE : '';
+        elNext.textContent = next ? next.text || NOTE : '';
+        k.classList.toggle('intro', idx < 0);
+      }
+
+      const text = cur ? cur.text || NOTE : '♪ …';
+      const chars = Array.from(text);
+      let cut = chars.length;
+      if (cur && cur.text) {
+        // chữ sáng dần theo thời gian của dòng (đến 85% thời lượng, tối đa ~6 giây)
+        const span = Math.min(6, Math.max(0.6, ((next ? next.t : cur.t + 4) - cur.t) * 0.85));
+        cut = Math.ceil(Math.min(1, (t - cur.t) / span) * chars.length);
+      }
+      if (cut !== lastCut) {
+        lastCut = cut;
+        elSung.textContent = chars.slice(0, cut).join('');
+        elRest.textContent = chars.slice(cut).join('');
+      }
+    })();
   }
 
   async function typeLyrics(art) {
@@ -615,7 +746,14 @@ requestAnimationFrame(loop);`;
     await typeWish();
     const as = cfg.autoScroll || {};
     await wait(as.delay != null ? as.delay : 2500);
-    AutoScroll.run($('#gallery').offsetTop, as.speed || 42);
+    let speed = as.speed || 42;
+    const ga = Music.galleryAudio();
+    if (as.matchSong !== false && ga && isFinite(ga.duration) && ga.duration > 30) {
+      // cuộn hết phần ảnh vừa đúng lúc bài hát kết thúc
+      const dist = document.documentElement.scrollHeight - window.innerHeight - $('#gallery').offsetTop;
+      speed = Math.max(18, Math.min(90, dist / (ga.duration - 4)));
+    }
+    AutoScroll.run($('#gallery').offsetTop, speed);
   }
   $('#gift').addEventListener('click', openGift);
 

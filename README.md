@@ -44,6 +44,15 @@ assets/
 - Ảnh nên nén còn khoảng ≤ 500 KB mỗi ảnh (rộng khoảng 1200px) để trang tải nhanh trên điện thoại.
 - Kho này **không kèm** file nhạc và lời bài hát vì có bản quyền. Bạn tự thêm file mp3 và dán lời vào `config.js` để dùng cá nhân.
 
+## Lời chạy khớp nhạc (karaoke)
+
+Dán lời bài hát dạng **LRC** vào mục `lrc` trong `js/config.js`. Mỗi dòng LRC có mốc thời gian, ví dụ `[01:02.50] lời bài hát`.
+Khi có `lrc` và file `santa-tell-me.mp3`, lời sẽ chạy đúng theo giây nhạc đang phát, hiện bên cạnh bức ảnh đang ở giữa màn hình.
+Dòng đang hát sáng dần theo nhạc, kèm dòng trước và dòng sau.
+
+- Nếu lời chạy sớm hoặc muộn so với nhạc, thêm dòng `[offset:+300]` (lời hiện sớm hơn 0,3 giây) hoặc `[offset:-300]` (lời hiện muộn hơn 0,3 giây).
+- Với `autoScroll.matchSong: true`, trang tự tính tốc độ cuộn để cuộn hết phần ảnh vừa đúng lúc bài hát kết thúc.
+
 ## Chạy thử trên máy
 
 ```bash
