@@ -67,6 +67,10 @@ Sau đó mở http://localhost:8000. Nên chạy bằng server như trên thay v
 Vào **Settings → Pages** của repo, chọn branch chứa code và thư mục `/ (root)` rồi lưu.
 Sau khoảng 1 phút, trang sẽ có địa chỉ dạng `https://<tên-github>.github.io/<tên-repo>/` để gửi cho Thỏ.
 
+### Sửa xong mà chưa thấy thay đổi?
+GitHub Pages cho trình duyệt giữ bản cũ tới khoảng 10 phút. Hãy đợi vài phút rồi tải lại trang (máy tính: Ctrl+Shift+R / Cmd+Shift+R; điện thoại: đóng tab rồi mở lại, hoặc thêm `?1`, `?2`… vào cuối link).
+Khi sửa file trong `js/` hay `css/`, đổi số `?v=...` trong `index.html` để buộc trình duyệt tải file mới.
+
 ## Cấu trúc code
 
 | File | Nội dung |
